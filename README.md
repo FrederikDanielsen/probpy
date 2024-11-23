@@ -121,4 +121,4 @@ Contributions are welcome! If you'd like to contribute, please fork the reposito
 
 ## Contact
 
-For questions, suggestions, or support, feel free to reach out to the repository owner.
+For questions, suggestions, or support, feel free to reach out to me at danielsen.contact@gmail.com.
