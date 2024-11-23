@@ -6,6 +6,8 @@ from scipy.stats import uniform, expon, norm, gamma, chi2, rayleigh, beta, cauch
 from scipy.stats import mode as scipy_mode
 from abc import ABC, abstractmethod
 
+from .core import DEFAULT_SAMPLE_SIZE
+
 
 class Distribution(ABC):
     """
@@ -67,7 +69,7 @@ class StochasticVariable:
             raise TypeError("distribution must be an instance of Distribution")
         self.__distribution = distribution  # Private distribution
         self.name = name or "Unnamed"  # Optional name for the variable
-        self.statistic_sample_size = 1000  # Default sample size for statistics
+        self.statistic_sample_size = DEFAULT_SAMPLE_SIZE  # Default sample size for statistics
 
     def sample(self, size=1):
         """
@@ -155,8 +157,8 @@ class StochasticVariable:
         samples = self.sample(size=size)
         lower_quantile = (1 - confidence_level) / 2
         upper_quantile = 1 - lower_quantile
-        lower_bound = np.quantile(samples, lower_quantile)
-        upper_bound = np.quantile(samples, upper_quantile)
+        lower_bound = float(np.quantile(samples, lower_quantile))
+        upper_bound = float(np.quantile(samples, upper_quantile))
 
         return lower_bound, upper_bound
 
@@ -193,11 +195,20 @@ class StochasticVariable:
 
     def __add__(self, other):
         return self._apply_operation(other, np.add)
+    
+    def __radd__(self, other):
+        return self._apply_operation(other, np.add)
 
     def __sub__(self, other):
         return self._apply_operation(other, np.subtract)
+    
+    def __rsub__(self, other):
+        return self._apply_operation(other, np.subtract)
 
     def __mul__(self, other):
+        return self._apply_operation(other, np.multiply)
+    
+    def __rmul__(self, other):
         return self._apply_operation(other, np.multiply)
 
     def __truediv__(self, other):
@@ -208,10 +219,12 @@ class StochasticVariable:
 
     def __mod__(self, other):
         return self._apply_operation(other, np.mod)
+    
+    def __rmod__(self, other):
+        return self._apply_operation(other, np.mod)
 
     def __repr__(self):
         return f"StochasticVariable(name={self.name}, distribution={self.__distribution.__class__.__name__})"
-
 
 
 
@@ -671,8 +684,8 @@ class BetaDistribution(ContinuousDistribution):
     """
     Beta Distribution: Models a Beta distribution with shape parameters (alpha, beta).
     """
-    def __init__(self, alpha, beta):
-        self.parameters = [alpha, beta]
+    def __init__(self, alpha, beta_):
+        self.parameters = [alpha, beta_]
         self.distribution = beta
 
     def _get_parameters(self):

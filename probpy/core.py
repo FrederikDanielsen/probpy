@@ -1,5 +1,13 @@
 # core.py
+
 import numpy as np
+
+# Core constants
+
+DEFAULT_SAMPLE_SIZE = 10000
+
+
+# Core functions
 
 def probability(*stochastic_variables, condition, size=None):
     """

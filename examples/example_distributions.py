@@ -45,7 +45,7 @@ def main():
     X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name="Normal(0, 1)")
     Y = StochasticVariable(NormalDistribution(mu=2, sigma=3), name="Normal(2, 3)")
 
-    Z = X + Y
+    Z = 2* X + Y
     ci = Z.confidence_interval(confidence_level=0.95, size=1000)
     third_moment = Z.moment(n=3, size=1000)
 
