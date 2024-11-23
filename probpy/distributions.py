@@ -6,7 +6,7 @@ from scipy.stats import uniform, expon, norm, gamma, chi2, rayleigh, beta, cauch
 from scipy.stats import mode as scipy_mode
 from abc import ABC, abstractmethod
 
-from .core import DEFAULT_SAMPLE_SIZE
+from .constants import DEFAULT_SAMPLE_SIZE
 
 
 class Distribution(ABC):
@@ -57,7 +57,7 @@ class StochasticVariable:
     A stochastic variable that wraps a distribution and supports arithmetic operations and statistics.
     """
 
-    def __init__(self, distribution, name=None):
+    def __init__(self, dist, name=None):
         """
         Initialize a stochastic variable with a given distribution.
 
@@ -65,9 +65,9 @@ class StochasticVariable:
             distribution (Distribution): An instance of a discrete or continuous distribution.
             name (str): Optional name for the variable.
         """
-        if not isinstance(distribution, Distribution):
+        if not isinstance(dist, Distribution):
             raise TypeError("distribution must be an instance of Distribution")
-        self.__distribution = distribution  # Private distribution
+        self.distribution = dist  # Private distribution
         self.name = name or "Unnamed"  # Optional name for the variable
         self.statistic_sample_size = DEFAULT_SAMPLE_SIZE  # Default sample size for statistics
 
@@ -82,8 +82,8 @@ class StochasticVariable:
             A single sample if size=1, otherwise a NumPy array of samples.
         """
         if size == 1:
-            return self.__distribution.sample()
-        return np.array(self.__distribution.sample(size=size))
+            return self.distribution.sample()
+        return np.array(self.distribution.sample(size=size))
 
     def _apply_operation(self, other, operation):
         """
@@ -109,7 +109,7 @@ class StochasticVariable:
                     return self.operation(self.dist.sample(size=size), self.scalar)
 
             return StochasticVariable(
-                ScalarCompositeDistribution(self.__distribution, other, operation),
+                ScalarCompositeDistribution(self.distribution, other, operation),
                 name=f"{self.name} {operation.__name__} {other}",
             )
 
@@ -140,7 +140,7 @@ class StochasticVariable:
             symbol = operation_symbols.get(operation, "?")  # Default to "?" if not found
 
             return StochasticVariable(
-                CompositeDistribution(self.__distribution, other.__distribution, operation),
+                CompositeDistribution(self.distribution, other.__distribution, operation),
                 name=f"{self.name} {symbol} {other.name}",
             )
 
@@ -173,6 +173,12 @@ class StochasticVariable:
             size = self.statistic_sample_size
         samples = self.sample(size=size)
         return np.std(samples)
+    
+    def var(self, size=None):
+        if size is None:
+            size = self.statistic_sample_size
+        samples = self.sample(size=size)
+        return np.var(samples)
 
     def median(self, size=None):
         if size is None:
@@ -224,7 +230,25 @@ class StochasticVariable:
         return self._apply_operation(other, np.mod)
 
     def __repr__(self):
-        return f"StochasticVariable(name={self.name}, distribution={self.__distribution.__class__.__name__})"
+        return f"StochasticVariable(name={self.name}, distribution={self.distribution.__class__.__name__})"
+
+
+# Functions
+
+
+# Statistical Functions
+
+def mean(X: StochasticVariable):
+    return X.mean()
+
+def std(X: StochasticVariable):
+    return X.std()
+
+def var(X: StochasticVariable):
+    return X.var()
+
+def median(X: StochasticVariable):
+    return X.median()
 
 
 

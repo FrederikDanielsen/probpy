@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from .core import DEFAULT_SAMPLE_SIZE
+from .constants import DEFAULT_SAMPLE_SIZE
 
 
 def plot_distribution(stochastic_var, num_samples=DEFAULT_SAMPLE_SIZE, bins=30, density=True, title=None):
