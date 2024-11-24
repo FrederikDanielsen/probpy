@@ -1,3 +1,5 @@
+#transformations.py
+
 import numpy as np
 from .core import apply
 
@@ -117,8 +119,8 @@ def sign(X):
     return apply(X, transformation=np.sign, name="sign")
 
 def min(*Xs):
-    return apply(*Xs, transformation=lambda *x: np.min(x), name="sign")
+    return apply(*Xs, transformation=lambda *x: np.min(x), name="min")
 
 def max(*Xs):
-    return apply(*Xs, transformation=lambda *x: np.max(x), name="sign")
+    return apply(*Xs, transformation=lambda *x: np.max(x), name="max")
 

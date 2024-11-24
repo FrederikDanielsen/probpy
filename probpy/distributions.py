@@ -1,843 +1,447 @@
 # distributions.py
 
 import numpy as np
-from scipy.stats import bernoulli, binom, geom, hypergeom, poisson, nbinom, multinomial, randint
-from scipy.stats import uniform, expon, norm, gamma, chi2, rayleigh, beta, cauchy, arcsine, dirichlet
-from scipy.stats import mode as scipy_mode
-from abc import ABC, abstractmethod
+from scipy.stats import rv_discrete, rv_continuous
+from scipy.stats import norm, uniform, poisson, randint
 
-from .constants import DEFAULT_SAMPLE_SIZE
-
-
-class Distribution(ABC):
-    """
-    Base class for all distributions.
-    """
-
-    @abstractmethod
-    def sample(self):
-        """Generate a random sample from the distribution."""
-        pass
+from scipy.stats import norm, uniform, expon, poisson, randint, bernoulli, binom, geom, hypergeom, nbinom, multinomial, gamma, chi2, rayleigh, beta, cauchy, arcsine, dirichlet, rv_discrete, rv_continuous, gaussian_kde
+from .core import apply
 
 
-class DiscreteDistribution(Distribution):
-    """
-    Base class for discrete distributions.
-    """
 
-    @abstractmethod
-    def pmf(self, x):
-        """Calculate the probability mass function."""
-        pass
+class Distribution:
+    def __init__(self, distribution_type=None):
+        self.distribution_type = distribution_type
 
-    @abstractmethod
-    def cdf(self, x):
-        """Calculate the cumulative distribution function."""
-        pass
+    def sample(self, size=1, context=None):
+        raise NotImplementedError("Sample method not implemented.")
+
+    def get_dependencies(self):
+        return set()
+
+class ScipyDistribution(Distribution):
+    def __init__(self, dist, **params):
+        self.dist = dist
+        self.params = params
+        # Determine the distribution type
+        if isinstance(dist, rv_discrete):
+            super().__init__(distribution_type='discrete')
+        elif isinstance(dist, rv_continuous):
+            super().__init__(distribution_type='continuous')
+        else:
+            # Try to instantiate the distribution to check its type
+            dist_instance = dist()
+            if isinstance(dist_instance, rv_discrete):
+                super().__init__(distribution_type='discrete')
+            elif isinstance(dist_instance, rv_continuous):
+                super().__init__(distribution_type='continuous')
+            else:
+                raise ValueError("The distribution must be an instance of rv_discrete or rv_continuous.")
+
+    def sample(self, size=1, context=None):
+        if context is None:
+            context = {}
+        resolved_params = self._resolve_params(context)
+        distribution_instance = self.dist(**resolved_params)
+        return distribution_instance.rvs(size=size)
+
+    def get_dependencies(self):
+        deps = set()
+        for value in self.params.values():
+            if isinstance(value, StochasticVariable):
+                deps.update(value.get_all_dependencies())
+                deps.add(value)
+        return deps
+
+    def _resolve_params(self, context=None):
+        if context is None:
+            context = {}
+        resolved_params = {}
+        for key, value in self.params.items():
+            if isinstance(value, StochasticVariable):
+                resolved_params[key] = value.sample(size=1, context=context)
+            else:
+                resolved_params[key] = value
+        return resolved_params
+
+    def pdf(self, x, context=None):
+        resolved_params = self._resolve_params(context)
+        distribution_instance = self.dist(**resolved_params)
+        if hasattr(distribution_instance, 'pdf'):
+            return distribution_instance.pdf(x)
+        else:
+            raise NotImplementedError("PDF not available for this distribution.")
+
+    def pmf(self, x, context=None):
+        resolved_params = self._resolve_params(context)
+        distribution_instance = self.dist(**resolved_params)
+        if hasattr(distribution_instance, 'pmf'):
+            return distribution_instance.pmf(x)
+        else:
+            raise NotImplementedError("PMF not available for this distribution.")
 
 
-class ContinuousDistribution(Distribution):
-    """
-    Base class for continuous distributions.
-    """
+class CustomDistribution(Distribution):
+    def __init__(self, func, domain=None, size=10000, distribution_type='continuous'):
+        """
+        Represents a user-defined distribution based on a lambda function.
 
-    @abstractmethod
+        Parameters:
+            - func (callable): A lambda function defining the distribution.
+            - domain (tuple, list, or array): 
+                - For continuous distributions: (low, high) tuple defining the domain.
+                - For discrete distributions: List or array of discrete values.
+            - size (int): The number of samples to use for empirical estimation (default: 10000).
+            - distribution_type (str): Either 'continuous' or 'discrete' (default: 'continuous').
+        """
+        super().__init__(distribution_type=distribution_type)
+        self.func = func
+        self.domain = domain
+        self.size = size
+
+        # Generate samples for internal representation
+        self.samples = self._generate_samples()
+
+        # Continuous: Use KDE for PDF approximation
+        if self.distribution_type == 'continuous':
+            from scipy.stats import gaussian_kde
+            self.kde = gaussian_kde(self.samples)
+        # Discrete: Calculate empirical PMF
+        elif self.distribution_type == 'discrete':
+            unique, counts = np.unique(self.samples, return_counts=True)
+            self.pmf_dict = dict(zip(unique, counts / counts.sum()))
+        else:
+            raise ValueError("distribution_type must be either 'continuous' or 'discrete'.")
+
+    def _generate_samples(self):
+        """
+        Generates samples from the user-defined function over the specified domain.
+        """
+        if isinstance(self.domain, (list, np.ndarray)):
+            # Discrete case: Use domain directly
+            return np.array([self.func(x) for x in self.domain])
+        elif isinstance(self.domain, tuple):
+            # Continuous case: Generate points over the range (low, high)
+            low, high = self.domain
+            x_values = np.linspace(low, high, self.size)
+            return np.array([self.func(x) for x in x_values])
+        else:
+            raise ValueError("Domain must be a tuple (low, high) or a list/array of discrete values.")
+
+    def sample(self, size=1):
+        """
+        Samples from the user-defined distribution.
+
+        Parameters:
+            - size (int): Number of samples to generate.
+
+        Returns:
+            - Array of sampled values.
+        """
+        if self.distribution_type == 'continuous':
+            return self.kde.resample(size).flatten()
+        elif self.distribution_type == 'discrete':
+            values, probabilities = zip(*self.pmf_dict.items())
+            return np.random.choice(values, size=size, p=probabilities)
+        else:
+            raise ValueError("Unsupported distribution type.")
+
     def pdf(self, x):
-        """Calculate the probability density function."""
-        pass
-
-    @abstractmethod
-    def cdf(self, x):
-        """Calculate the cumulative distribution function."""
-        pass
-
-
-class StochasticVariable:
-    """
-    A stochastic variable that wraps a distribution and supports arithmetic operations and statistics.
-    """
-
-    def __init__(self, dist, name=None):
         """
-        Initialize a stochastic variable with a given distribution.
-
-        Parameters:
-            distribution (Distribution): An instance of a discrete or continuous distribution.
-            name (str): Optional name for the variable.
+        Probability density function for continuous distributions.
         """
-        if not isinstance(dist, Distribution):
-            raise TypeError("distribution must be an instance of Distribution")
-        self.distribution = dist  # Private distribution
-        self.name = name or "Unnamed"  # Optional name for the variable
-        self.statistic_sample_size = DEFAULT_SAMPLE_SIZE  # Default sample size for statistics
-
-    def sample(self, size=1):
-        """
-        Generate one or more random samples from the associated distribution.
-
-        Parameters:
-            size (int): Number of samples to generate (default: 1).
-
-        Returns:
-            A single sample if size=1, otherwise a NumPy array of samples.
-        """
-        if size == 1:
-            return self.distribution.sample()
-        return np.array(self.distribution.sample(size=size))
-
-    def _apply_operation(self, other, operation):
-        """
-        Apply an operation (+, -, *, /, **, %) between a stochastic variable and another variable (stochastic or scalar).
-
-        Parameters:
-            other (StochasticVariable or scalar): The other variable in the operation.
-            operation (callable): A function implementing the operation.
-
-        Returns:
-            StochasticVariable: A new stochastic variable representing the result.
-        """
-        if isinstance(other, (int, float)):  # Handle scalar operations
-            class ScalarCompositeDistribution(Distribution):
-                def __init__(self, dist, scalar, operation):
-                    self.dist = dist
-                    self.scalar = scalar
-                    self.operation = operation
-
-                def sample(self, size=1):
-                    if size == 1:
-                        return self.operation(self.dist.sample(), self.scalar)
-                    return self.operation(self.dist.sample(size=size), self.scalar)
-
-            return StochasticVariable(
-                ScalarCompositeDistribution(self.distribution, other, operation),
-                name=f"{self.name} {operation.__name__} {other}",
-            )
-
-        elif isinstance(other, StochasticVariable):  # Handle stochastic variable operations
-            class CompositeDistribution(Distribution):
-                def __init__(self, dist1, dist2, operation):
-                    self.dist1 = dist1
-                    self.dist2 = dist2
-                    self.operation = operation
-
-                def sample(self, size=1):
-                    if size == 1:
-                        return self.operation(self.dist1.sample(), self.dist2.sample())
-                    return self.operation(
-                        self.dist1.sample(size=size),
-                        self.dist2.sample(size=size),
-                    )
-
-            # Map the operation to its symbol
-            operation_symbols = {
-                np.add: "+",
-                np.subtract: "-",
-                np.multiply: "*",
-                np.divide: "/",
-                np.power: "**",
-                np.mod: "%",
-            }
-            symbol = operation_symbols.get(operation, "?")  # Default to "?" if not found
-
-            return StochasticVariable(
-                CompositeDistribution(self.distribution, other.__distribution, operation),
-                name=f"{self.name} {symbol} {other.name}",
-            )
-
+        if self.distribution_type == 'continuous':
+            return self.kde.evaluate(x)
         else:
-            raise TypeError("Can only operate with StochasticVariable or scalar.")
-
-    def confidence_interval(self, confidence_level=0.95, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-
-        if not (0 < confidence_level <= 1):
-            raise ValueError("Confidence level must be in the range (0, 1].")
-
-        samples = self.sample(size=size)
-        lower_quantile = (1 - confidence_level) / 2
-        upper_quantile = 1 - lower_quantile
-        lower_bound = float(np.quantile(samples, lower_quantile))
-        upper_bound = float(np.quantile(samples, upper_quantile))
-
-        return lower_bound, upper_bound
-
-    def mean(self, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-        samples = self.sample(size=size)
-        return np.mean(samples)
-
-    def std(self, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-        samples = self.sample(size=size)
-        return np.std(samples)
-    
-    def var(self, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-        samples = self.sample(size=size)
-        return np.var(samples)
-
-    def median(self, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-        samples = self.sample(size=size)
-        return np.median(samples)
-
-    def mode(self, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-        samples = self.sample(size=size)
-        mode_result = scipy_mode(samples, axis=None)
-        return mode_result.mode[0]
-
-    def moment(self, n, size=None):
-        if size is None:
-            size = self.statistic_sample_size
-        samples = self.sample(size=size)
-        return np.mean(samples ** n)
-
-    def __add__(self, other):
-        return self._apply_operation(other, np.add)
-    
-    def __radd__(self, other):
-        return self._apply_operation(other, np.add)
-
-    def __sub__(self, other):
-        return self._apply_operation(other, np.subtract)
-    
-    def __rsub__(self, other):
-        return self._apply_operation(other, np.subtract)
-
-    def __mul__(self, other):
-        return self._apply_operation(other, np.multiply)
-    
-    def __rmul__(self, other):
-        return self._apply_operation(other, np.multiply)
-
-    def __truediv__(self, other):
-        return self._apply_operation(other, np.divide)
-
-    def __pow__(self, other):
-        return self._apply_operation(other, np.power)
-
-    def __mod__(self, other):
-        return self._apply_operation(other, np.mod)
-    
-    def __rmod__(self, other):
-        return self._apply_operation(other, np.mod)
-
-    def __repr__(self):
-        return f"StochasticVariable(name={self.name}, distribution={self.distribution.__class__.__name__})"
-
-
-# Functions
-
-
-# Statistical Functions
-
-def mean(X: StochasticVariable):
-    return X.mean()
-
-def std(X: StochasticVariable):
-    return X.std()
-
-def var(X: StochasticVariable):
-    return X.var()
-
-def median(X: StochasticVariable):
-    return X.median()
-
-
-
-# Discrete Distributions
-
-class DiscreteUniformDistribution(DiscreteDistribution):
-    """
-    Discrete Uniform Distribution: Models a uniform distribution over integers [a, b].
-    """
-    def __init__(self, a, b):
-        # For scipy.stats.randint, low=a and high=b+1 to include b.
-        self.parameters = [a, b + 1]  # Adjust for inclusive range
-        self.distribution = randint
-
-    def _get_parameters(self):
-        # Resolve parameters, evaluating StochasticVariable if necessary
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        # Check if any parameter is a StochasticVariable
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self.parameters).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self.parameters).rvs(size=size)
+            raise ValueError("PDF is not available for discrete distributions.")
 
     def pmf(self, x):
-        # Probability mass function
-        return self.distribution(*self.parameters).pmf(x)
+        """
+        Probability mass function for discrete distributions.
+        """
+        if self.distribution_type == 'discrete':
+            return np.array([self.pmf_dict.get(val, 0) for val in x])
+        else:
+            raise ValueError("PMF is not available for continuous distributions.")
 
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self.parameters).cdf(x)
 
 
-class BernoulliDistribution(DiscreteDistribution):
-    """
-    Bernoulli Distribution: Models a single trial with a success probability p.
-    """
+
+
+
+class BernoulliDistribution(ScipyDistribution):
     def __init__(self, p):
-        self.parameters = [p]
-        self.distribution = bernoulli
-
-    def _get_parameters(self):
-        # Resolve parameters, evaluating StochasticVariable if necessary
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        # Check if any parameter is a StochasticVariable
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(self._get_parameters()[0]).rvs() for _ in range(size)]
-        else:
-            return self.distribution(self._get_parameters()[0]).rvs(size=size)
-
-    def pmf(self, x):
-        # Probability mass function
-        return self.distribution(self._get_parameters()[0]).pmf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(self._get_parameters()[0]).cdf(x)
+        """
+        Represents a Bernoulli distribution with success probability p.
+        
+        Parameters:
+        - p (float): Probability of success (0 <= p <= 1).
+        """
+        super().__init__(dist=bernoulli, p=p)
 
 
-class BinomialDistribution(DiscreteDistribution):
-    """
-    Binomial Distribution: Models the number of successes in n independent trials
-    with a success probability p.
-    """
+
+
+class BinomialDistribution(ScipyDistribution):
     def __init__(self, n, p):
-        self.parameters = [n, p]
-        self.distribution = binom
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-    def pmf(self, x):
-        # Probability mass function
-        return self.distribution(*self._get_parameters()).pmf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
+        """
+        Represents a Binomial distribution with n trials and success probability p.
+        
+        Parameters:
+        - n (int): Number of trials.
+        - p (float): Probability of success (0 <= p <= 1).
+        """
+        super().__init__(dist=binom, n=n, p=p)
 
 
-class GeometricDistribution(DiscreteDistribution):
-    """
-    Geometric Distribution: Models the number of trials until the first success
-    in a sequence of independent Bernoulli trials with success probability p.
-    """
+
+
+class GeometricDistribution(ScipyDistribution):
     def __init__(self, p):
-        self.parameters = [p]
-        self.distribution = geom
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(self._get_parameters()[0]).rvs() for _ in range(size)]
-        else:
-            return self.distribution(self._get_parameters()[0]).rvs(size=size)
-
-    def pmf(self, x):
-        # Probability mass function
-        return self.distribution(self._get_parameters()[0]).pmf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(self._get_parameters()[0]).cdf(x)
-
-
-class HypergeometricDistribution(DiscreteDistribution):
-    """
-    Hypergeometric Distribution: Models the number of successes in a sample of size n
-    from a population of size N with k successes, without replacement.
-    """
-    def __init__(self, N, K, n):
-        self.parameters = [N, K, n]
-        self.distribution = hypergeom
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
+        """
+        Represents a Geometric distribution with success probability p.
+        
+        Parameters:
+        - p (float): Probability of success (0 <= p <= 1).
+        """
+        super().__init__(dist=geom, p=p)
 
-    def pmf(self, x):
-        # Probability mass function
-        return self.distribution(*self._get_parameters()).pmf(x)
 
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
-
-
-class PoissonDistribution(DiscreteDistribution):
-    """
-    Poisson Distribution: Models the number of events occurring in a fixed interval of time
-    or space, given a known constant mean rate (lambda_).
-    """
-    def __init__(self, lambda_):
-        self.parameters = [lambda_]
-        self.distribution = poisson
 
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(self._get_parameters()[0]).rvs() for _ in range(size)]
-        else:
-            return self.distribution(self._get_parameters()[0]).rvs(size=size)
-
-    def pmf(self, x):
-        # Probability mass function
-        return self.distribution(self._get_parameters()[0]).pmf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(self._get_parameters()[0]).cdf(x)
-
-
-class NegativeBinomialDistribution(DiscreteDistribution):
-    """
-    Negative Binomial Distribution: Models the number of trials needed to achieve
-    r successes in a sequence of independent Bernoulli trials with success probability p.
-    """
-    def __init__(self, r, p):
-        self.parameters = [r, p]
-        self.distribution = nbinom
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-    def pmf(self, x):
-        # Probability mass function
-        return self.distribution(*self._get_parameters()).pmf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
-
-
-class MultinomialDistribution(DiscreteDistribution):
-    """
-    Multinomial Distribution: Models the counts of outcomes in n independent trials,
-    where each trial has k possible outcomes with specified probabilities (pvals).
-    """
-    def __init__(self, n, pvals):
-        self.parameters = [n, pvals]
-        self.distribution = multinomial
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-
-
-
-
-# Continuous Distributions
-
-
-class ContinuousUniformDistribution(ContinuousDistribution):
-    """
-    Continuous Uniform Distribution: Models a uniform distribution over the interval [a, b].
-    """
-    def __init__(self, a, b):
-        # For scipy.stats.uniform, loc=a and scale=(b-a).
-        self.parameters = [a, b - a]
-        self.distribution = uniform
-
-    def _get_parameters(self):
-        # Resolve parameters, evaluating StochasticVariable if necessary
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        # Check if any parameter is a StochasticVariable
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self.parameters).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self.parameters).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(*self.parameters).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self.parameters).cdf(x)
-
-
-class ExponentialDistribution(ContinuousDistribution):
-    """
-    Exponential Distribution: Models the time between events in a Poisson process
-    with rate parameter λ (lambda).
-    """
-    def __init__(self, lambda_):
-        self.parameters = [lambda_]  # λ is the rate parameter
-        self.distribution = expon
-
-    def _get_parameters(self):
-        # Resolve λ (rate parameter) and convert to scale = 1/λ
-        lambda_ = [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters][0]
-        return 1 / lambda_
-
-    def _has_stochastic_parameter(self):
-        # Check if λ is a StochasticVariable
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        scale = self._get_parameters()
-        if self._has_stochastic_parameter():
-            return [self.distribution(scale=scale).rvs() for _ in range(size)]
-        else:
-            return self.distribution(scale=scale).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        scale = self._get_parameters()
-        return self.distribution(scale=scale).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        scale = self._get_parameters()
-        return self.distribution(scale=scale).cdf(x)
-
-
-class NormalDistribution(ContinuousDistribution):
-    """
-    Normal Distribution: Models the normal (Gaussian) distribution with mean (mu) and standard deviation (sigma).
-    """
-    def __init__(self, mu, sigma):
-        self.parameters = [mu, sigma]
-        self.distribution = norm
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(*self._get_parameters()).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
-
-
-class GammaDistribution(ContinuousDistribution):
-    """
-    Gamma Distribution: Models a gamma distribution with shape parameter α (alpha)
-    and rate parameter λ (lambda).
-    """
-    def __init__(self, alpha, lambda_):
-        self.parameters = [alpha, lambda_]  # α is the shape, λ is the rate
-        self.distribution = gamma
-
-    def _get_parameters(self):
-        # Resolve α and λ, convert λ to scale = 1 / λ
-        alpha, lambda_ = [
-            x.sample() if isinstance(x, StochasticVariable) else x
-            for x in self.parameters
-        ]
-        scale = 1 / lambda_  # Convert λ (rate) to scale
-        return alpha, scale
-
-    def _has_stochastic_parameter(self):
-        # Check if any parameter is a StochasticVariable
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        alpha, scale = self._get_parameters()
-        if self._has_stochastic_parameter():
-            return [self.distribution(alpha, scale=scale).rvs() for _ in range(size)]
-        else:
-            return self.distribution(alpha, scale=scale).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        alpha, scale = self._get_parameters()
-        return self.distribution(alpha, scale=scale).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        alpha, scale = self._get_parameters()
-        return self.distribution(alpha, scale=scale).cdf(x)
-
-
-class ChiSquaredDistribution(ContinuousDistribution):
-    """
-    Chi-Squared Distribution: Models a chi-squared distribution with degrees of freedom (df).
-    """
+
+
+class HypergeometricDistribution(ScipyDistribution):
+    def __init__(self, M, n, N):
+        """
+        Represents a Hypergeometric distribution.
+        
+        Parameters:
+        - M (int): Total population size.
+        - n (int): Number of successes in the population.
+        - N (int): Number of draws.
+        """
+        super().__init__(dist=hypergeom, M=M, n=n, N=N)
+
+
+
+
+
+class PoissonDistribution(ScipyDistribution):
+    def __init__(self, mu):
+        """
+        Represents a Poisson distribution with mean mu.
+        
+        Parameters:
+        - mu (float): Mean number of events.
+        """
+        super().__init__(dist=poisson, mu=mu)
+
+
+
+
+
+class NegativeBinomialDistribution(ScipyDistribution):
+    def __init__(self, n, p):
+        """
+        Represents a Negative Binomial distribution.
+        
+        Parameters:
+        - n (int): Number of successes.
+        - p (float): Probability of success (0 <= p <= 1).
+        """
+        super().__init__(dist=nbinom, n=n, p=p)
+
+
+
+
+
+
+
+
+class MultinomialDistribution(ScipyDistribution):
+    def __init__(self, n, p):
+        """
+        Represents a Multinomial distribution.
+        
+        Parameters:
+        - n (int): Number of trials.
+        - p (list): List of probabilities for each outcome.
+        """
+        super().__init__(dist=multinomial, n=n, p=p)
+
+
+
+
+
+
+
+class ExponentialDistribution(ScipyDistribution):
+    def __init__(self, lambd):
+        """
+        Represents an Exponential distribution with rate parameter lambda.
+        
+        Parameters:
+        - lambd (float): Rate parameter.
+        """
+        super().__init__(dist=expon, scale=1 / lambd)
+
+
+
+
+class NormalDistribution(ScipyDistribution):
+    def __init__(self, mu=0, sigma=1):
+        """
+        Represents a Normal distribution with mean mu and standard deviation sigma.
+        
+        Parameters:
+        - mu (float): Mean.
+        - sigma (float): Standard deviation.
+        """
+        super().__init__(dist=norm, loc=mu, scale=sigma)
+
+    @classmethod
+    def fit(cls, data):
+        """
+        Fits a normal distribution to the given data using MLE.
+
+        Parameters:
+            - data (list or numpy.ndarray): Observed data to fit.
+
+        Returns:
+            - NormalDistribution: A new NormalDistribution instance with the fitted parameters.
+        """
+        # Estimate parameters using Maximum Likelihood Estimation (MLE)
+        mu, sigma = norm.fit(data)  # Scipy's MLE fit
+        return cls(mu=mu, sigma=sigma)
+
+
+
+
+class GammaDistribution(ScipyDistribution):
+    def __init__(self, shape, scale=1):
+        """
+        Represents a Gamma distribution.
+        
+        Parameters:
+        - shape (float): Shape parameter (k).
+        - scale (float): Scale parameter (θ).
+        """
+        super().__init__(dist=gamma, a=shape, scale=scale)
+
+
+
+
+
+class ChiSquaredDistribution(ScipyDistribution):
     def __init__(self, df):
-        self.parameters = [df]
-        self.distribution = chi2
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(self._get_parameters()[0]).rvs() for _ in range(size)]
-        else:
-            return self.distribution(self._get_parameters()[0]).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(self._get_parameters()[0]).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(self._get_parameters()[0]).cdf(x)
+        """
+        Represents a Chi-Squared distribution with degrees of freedom df.
+        
+        Parameters:
+        - df (int): Degrees of freedom.
+        """
+        super().__init__(dist=chi2, df=df)
 
 
-class RayleighDistribution(ContinuousDistribution):
-    """
-    Rayleigh Distribution: Models a Rayleigh distribution with scale parameter (sigma).
-    """
-    def __init__(self, sigma):
-        self.parameters = [sigma]
-        self.distribution = rayleigh
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(self._get_parameters()[0]).rvs() for _ in range(size)]
-        else:
-            return self.distribution(self._get_parameters()[0]).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(self._get_parameters()[0]).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(self._get_parameters()[0]).cdf(x)
 
 
-class BetaDistribution(ContinuousDistribution):
-    """
-    Beta Distribution: Models a Beta distribution with shape parameters (alpha, beta).
-    """
-    def __init__(self, alpha, beta_):
-        self.parameters = [alpha, beta_]
-        self.distribution = beta
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(*self._get_parameters()).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
 
 
-class CauchyDistribution(ContinuousDistribution):
-    """
-    Cauchy Distribution: Models a Cauchy distribution with location (x_0) and scale (gamma).
-    """
-    def __init__(self, x_0, gamma):
-        self.parameters = [x_0, gamma]
-        self.distribution = cauchy
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(*self._get_parameters()).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
+class RayleighDistribution(ScipyDistribution):
+    def __init__(self, scale=1):
+        """
+        Represents a Rayleigh distribution.
+        
+        Parameters:
+        - scale (float): Scale parameter.
+        """
+        super().__init__(dist=rayleigh, scale=scale)
 
 
-class ArcsineDistribution(ContinuousDistribution):
-    """
-    Arcsine Distribution: Models an arcsine distribution over [a, b].
-    """
-    def __init__(self, a, b):
-        self.parameters = [a, b]
-        self.distribution = arcsine
-
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
-
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
-
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(*self._get_parameters()).rvs() for _ in range(size)]
-        else:
-            return self.distribution(*self._get_parameters()).rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(*self._get_parameters()).pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution(*self._get_parameters()).cdf(x)
 
 
-class StandardArcsineDistribution(ContinuousDistribution):
-    """
-    Standard Arcsine Distribution: Models the standard arcsine distribution over (0, 1).
-    """
+
+class BetaDistribution(ScipyDistribution):
+    def __init__(self, alpha, beta):
+        """
+        Represents a Beta distribution.
+        
+        Parameters:
+        - alpha (float): Alpha parameter.
+        - beta (float): Beta parameter.
+        """
+        super().__init__(dist=beta, a=alpha, b=beta)
+
+
+
+
+
+class CauchyDistribution(ScipyDistribution):
+    def __init__(self, loc=0, scale=1):
+        """
+        Represents a Cauchy distribution.
+        
+        Parameters:
+        - loc (float): Location parameter.
+        - scale (float): Scale parameter.
+        """
+        super().__init__(dist=cauchy, loc=loc, scale=scale)
+
+
+
+
+
+class StandardArcsineDistribution(ScipyDistribution):
     def __init__(self):
-        self.distribution = arcsine  # scipy.stats.arcsine defaults to loc=0, scale=1 for (0, 1)
-
-    def sample(self, size=1):
-        # Sample from the standard arcsine distribution
-        return self.distribution().rvs(size=size)
-
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution().pdf(x)
-
-    def cdf(self, x):
-        # Cumulative distribution function
-        return self.distribution().cdf(x)
+        """
+        Represents a Standard Arcsine distribution.
+        """
+        super().__init__(dist=arcsine)
 
 
-class DirichletDistribution(ContinuousDistribution):
-    """
-    Dirichlet Distribution: Models a Dirichlet distribution with a vector of concentration parameters (alpha).
-    """
+
+
+
+
+class DirichletDistribution(ScipyDistribution):
     def __init__(self, alpha):
-        self.parameters = [alpha]
-        self.distribution = dirichlet
+        """
+        Represents a Dirichlet distribution.
+        
+        Parameters:
+        - alpha (list): Concentration parameters for the distribution.
+        """
+        super().__init__(dist=dirichlet, alpha=alpha)
 
-    def _get_parameters(self):
-        return [x.sample() if isinstance(x, StochasticVariable) else x for x in self.parameters]
 
-    def _has_stochastic_parameter(self):
-        return any(isinstance(x, StochasticVariable) for x in self.parameters)
 
-    def sample(self, size=1):
-        # Sample from the distribution
-        if self._has_stochastic_parameter():
-            return [self.distribution(self._get_parameters()[0]).rvs() for _ in range(size)]
-        else:
-            return self.distribution(self._get_parameters()[0]).rvs(size=size)
 
-    def pdf(self, x):
-        # Probability density function
-        return self.distribution(self._get_parameters()[0]).pdf(x)
+class ContinuousUniformDistribution(ScipyDistribution):
+    def __init__(self, a=0, b=1):
+        """
+        Represents a continuous uniform distribution over the interval [a, b].
+        
+        Parameters:
+        - a (float): Lower bound of the interval.
+        - b (float): Upper bound of the interval.
+        """
+        super().__init__(dist=uniform, loc=a, scale=b - a)
+
+
+
+
+
+
+class DiscreteUniformDistribution(ScipyDistribution):
+    def __init__(self, a, b):
+        """
+        Represents a discrete uniform distribution over integers [a, b].
+        
+        Parameters:
+        - a (int): Lower bound (inclusive).
+        - b (int): Upper bound (inclusive).
+        """
+        super().__init__(dist=randint, low=a, high=b + 1)
 
 
 

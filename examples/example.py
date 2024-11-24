@@ -1,20 +1,16 @@
-from probpy import probability as P
-import probpy as pp
-from probpy.plots import plot_distribution
 from probpy.distributions import StochasticVariable, NormalDistribution, ContinuousUniformDistribution
-import numpy as np
+import probpy as pp
+from probpy import probability as P
+from probpy.plots import plot_distribution
 
-X = StochasticVariable(ContinuousUniformDistribution(-2,3))
-Y = StochasticVariable(NormalDistribution(X,1))
+if __name__ == "__main__":
+    X = StochasticVariable(NormalDistribution(0, 1))
+    Y = X**2 + 3*X
 
-Z = pp.min(X, Y)
+    print("P(Y < 2) =", P(Y, condition=lambda y: y < 2))
+    
 
-
-
-probability = P(Z, condition=lambda z: z < 0)
-
-
-print("P(Z < 0) =", probability)
+    Z = X + X
 
 
-plot_distribution(Z)
+
