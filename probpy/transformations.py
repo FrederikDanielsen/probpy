@@ -3,124 +3,126 @@
 import numpy as np
 from .core import apply
 
-# Exponential and logarithmic functions
 
+# Exponential and logarithmic functions
 def exp(X):
-    return apply(X, transformation=np.exp, name="exp")
+    return apply(np.exp, X, name=f"exp({X.name})" if hasattr(X, "name") else "exp")
 
 def expm1(X):
-    return apply(X, transformation=np.expm1, name="expm1")
+    return apply(np.expm1, X, name=f"expm1({X.name})" if hasattr(X, "name") else "expm1")
 
 def log(X):
-    return apply(X, transformation=np.log, name="log")
+    return apply(np.log, X, name=f"log({X.name})" if hasattr(X, "name") else "log")
 
 def log10(X):
-    return apply(X, transformation=np.log10, name="log10")
+    return apply(np.log10, X, name=f"log10({X.name})" if hasattr(X, "name") else "log10")
 
 def log2(X):
-    return apply(X, transformation=np.log2, name="log2")
+    return apply(np.log2, X, name=f"log2({X.name})" if hasattr(X, "name") else "log2")
 
 def log1p(X):
-    return apply(X, transformation=np.log1p, name="log1p")
+    return apply(np.log1p, X, name=f"log1p({X.name})" if hasattr(X, "name") else "log1p")
 
 
 # Power functions
-
 def sqrt(X):
-    return apply(X, transformation=np.sqrt, name="sqrt")
+    return apply(np.sqrt, X, name=f"sqrt({X.name})" if hasattr(X, "name") else "sqrt")
 
 def square(X):
-    return apply(X, transformation=np.square, name="square")
+    return apply(np.square, X, name=f"square({X.name})" if hasattr(X, "name") else "square")
 
 def power(X, y):
-    return X ** y
+    x_name = X.name if hasattr(X, "name") else "X"
+    y_name = y.name if hasattr(y, "name") else str(y)
+    return apply(np.power, X, y, name=f"power({x_name}, {y_name})")
 
 def cbrt(X):
-    return apply(X, transformation=np.cbrt, name="cbrt")
+    return apply(np.cbrt, X, name=f"cbrt({X.name})" if hasattr(X, "name") else "cbrt")
 
 def reciprocal(X):
-    return apply(X, transformation=np.reciprocal, name="reciprocal")
+    return apply(lambda x: 1 / x, X, name=f"reciprocal({X.name})" if hasattr(X, "name") else "reciprocal")
 
 
 # Trigonometric functions
-
 def sin(X):
-    return apply(X, transformation=np.sin, name="sin")
+    return apply(np.sin, X, name=f"sin({X.name})" if hasattr(X, "name") else "sin")
 
 def cos(X):
-    return apply(X, transformation=np.cos, name="cos")
+    return apply(np.cos, X, name=f"cos({X.name})" if hasattr(X, "name") else "cos")
 
 def tan(X):
-    return apply(X, transformation=np.tan, name="tan")
+    return apply(np.tan, X, name=f"tan({X.name})" if hasattr(X, "name") else "tan")
 
 def arcsin(X):
-    return apply(X, transformation=np.arcsin, name="arcsin")
+    return apply(np.arcsin, X, name=f"arcsin({X.name})" if hasattr(X, "name") else "arcsin")
 
 def arccos(X):
-    return apply(X, transformation=np.arccos, name="arccos")
+    return apply(np.arccos, X, name=f"arccos({X.name})" if hasattr(X, "name") else "arccos")
 
 def arctan(X):
-    return apply(X, transformation=np.arctan, name="arctan")
+    return apply(np.arctan, X, name=f"arctan({X.name})" if hasattr(X, "name") else "arctan")
 
 def arctan2(X, Y):
-    return apply(X, Y, transformation=np.arctan, name="arctan")
+    x_name = X.name if hasattr(X, "name") else "X"
+    y_name = Y.name if hasattr(Y, "name") else "Y"
+    return apply(np.arctan2, X, Y, name=f"arctan2({x_name}, {y_name})")
 
 def hypot(X, Y):
-    return apply(X, Y, transformation=np.hypot, name="hypot")
-
+    x_name = X.name if hasattr(X, "name") else "X"
+    y_name = Y.name if hasattr(Y, "name") else "Y"
+    return apply(np.hypot, X, Y, name=f"hypot({x_name}, {y_name})")
 
 
 # Hyperbolic functions
-
 def sinh(X):
-    return apply(X, transformation=np.sinh, name="sinh")
+    return apply(np.sinh, X, name=f"sinh({X.name})" if hasattr(X, "name") else "sinh")
 
 def cosh(X):
-    return apply(X, transformation=np.cosh, name="cosh")
+    return apply(np.cosh, X, name=f"cosh({X.name})" if hasattr(X, "name") else "cosh")
 
 def tanh(X):
-    return apply(X, transformation=np.tanh, name="tanh")
+    return apply(np.tanh, X, name=f"tanh({X.name})" if hasattr(X, "name") else "tanh")
 
 def arcsinh(X):
-    return apply(X, transformation=np.arcsinh, name="arcsinh")
+    return apply(np.arcsinh, X, name=f"arcsinh({X.name})" if hasattr(X, "name") else "arcsinh")
 
 def arccosh(X):
-    return apply(X, transformation=np.arccosh, name="arccosh")
+    return apply(np.arccosh, X, name=f"arccosh({X.name})" if hasattr(X, "name") else "arccosh")
 
 def arctanh(X):
-    return apply(X, transformation=np.arctanh, name="arctanh")
+    return apply(np.arctanh, X, name=f"arctanh({X.name})" if hasattr(X, "name") else "arctanh")
 
 
 # Round and clipping
-
-def round(X, decimals=1):
-    return apply(X, transformation=lambda x: np.round(x, decimals), name="round")
+def round(X, decimals=0):
+    return apply(lambda x: np.round(x, decimals=decimals), X, name=f"round({X.name}, {decimals})" if hasattr(X, "name") else f"round_{decimals}")
 
 def floor(X):
-    return apply(X, transformation=np.floor, name="floor")
+    return apply(np.floor, X, name=f"floor({X.name})" if hasattr(X, "name") else "floor")
 
 def ceil(X):
-    return apply(X, transformation=np.ceil, name="ceil")
+    return apply(np.ceil, X, name=f"ceil({X.name})" if hasattr(X, "name") else "ceil")
 
 def trunc(X):
-    return apply(X, transformation=np.trunc, name="trunc")
+    return apply(np.trunc, X, name=f"trunc({X.name})" if hasattr(X, "name") else "trunc")
 
 def clip(X, a_min, a_max):
-    return apply(X, transformation=lambda x: np.trunc(x, a_min, a_max), name=f"clip_[{a_min}, {a_max}]")
-
+    return apply(lambda x: np.clip(x, a_min, a_max), X, name=f"clip({X.name}, {a_min}, {a_max})" if hasattr(X, "name") else f"clip_{a_min}_{a_max}")
 
 
 # Sign and comparison
-
 def abs(X):
-    return apply(X, transformation=np.abs, name="abs")
+    return apply(np.abs, X, name=f"abs({X.name})" if hasattr(X, "name") else "abs")
 
 def sign(X):
-    return apply(X, transformation=np.sign, name="sign")
+    return apply(np.sign, X, name=f"sign({X.name})" if hasattr(X, "name") else "sign")
 
 def min(*Xs):
-    return apply(*Xs, transformation=lambda *x: np.min(x), name="min")
+    x_names = [x.name if hasattr(x, "name") else "X" for x in Xs]
+    return apply(np.min, *Xs, name=f"min({', '.join(x_names)})")
 
 def max(*Xs):
-    return apply(*Xs, transformation=lambda *x: np.max(x), name="max")
+    x_names = [x.name if hasattr(x, "name") else "X" for x in Xs]
+    return apply(np.max, *Xs, name=f"max({', '.join(x_names)})")
+
 

@@ -3,10 +3,10 @@
 import numpy as np
 from scipy.stats import rv_discrete, rv_continuous
 from scipy.stats import norm, uniform, poisson, randint
-
+from scipy.stats import kstest, chi2, anderson
 from scipy.stats import norm, uniform, expon, poisson, randint, bernoulli, binom, geom, hypergeom, nbinom, multinomial, gamma, chi2, rayleigh, beta, cauchy, arcsine, dirichlet, rv_discrete, rv_continuous, gaussian_kde
-from .core import apply
-
+from .core import StochasticVariable
+from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 
 
 class Distribution:
@@ -18,6 +18,7 @@ class Distribution:
 
     def get_dependencies(self):
         return set()
+
 
 class ScipyDistribution(Distribution):
     def __init__(self, dist, **params):
@@ -79,10 +80,19 @@ class ScipyDistribution(Distribution):
             return distribution_instance.pmf(x)
         else:
             raise NotImplementedError("PMF not available for this distribution.")
+        
+
+    def cdf(self, x, context=None):
+        resolved_params = self._resolve_params(context)
+        distribution_instance = self.dist(**resolved_params)
+        if hasattr(distribution_instance, 'cdf'):
+            return distribution_instance.cdf(x)
+        else:
+            raise NotImplementedError("CDF not available for this distribution.")
 
 
 class CustomDistribution(Distribution):
-    def __init__(self, func, domain=None, size=10000, distribution_type='continuous'):
+    def __init__(self, func, domain=None, size=DEFAULT_STATISTICS_SAMPLE_SIZE, distribution_type='continuous'):
         """
         Represents a user-defined distribution based on a lambda function.
 
@@ -91,7 +101,7 @@ class CustomDistribution(Distribution):
             - domain (tuple, list, or array): 
                 - For continuous distributions: (low, high) tuple defining the domain.
                 - For discrete distributions: List or array of discrete values.
-            - size (int): The number of samples to use for empirical estimation (default: 10000).
+            - size (int): The number of samples to use for empirical estimation (default: DEFAULT_STATISTICS_SAMPLE_SIZE).
             - distribution_type (str): Either 'continuous' or 'discrete' (default: 'continuous').
         """
         super().__init__(distribution_type=distribution_type)
@@ -139,9 +149,19 @@ class CustomDistribution(Distribution):
             - Array of sampled values.
         """
         if self.distribution_type == 'continuous':
-            return self.kde.resample(size).flatten()
+            samples = self.kde.resample(size*2).flatten()
+            low, high = self.domain
+            samples = samples[(samples >= low) & (samples <= high)]
+            while len(samples) < size:
+                new_samples = self.kde.resample(size).flatten()
+                new_samples = new_samples[(new_samples >= low) & (new_samples <= high)]
+                samples = np.concatenate((samples, new_samples))
+            return samples[:size]
         elif self.distribution_type == 'discrete':
+            # Discrete case: Use the pmf_dict to sample
             values, probabilities = zip(*self.pmf_dict.items())
+            probabilities = np.array(probabilities)
+            probabilities /= probabilities.sum()  # Normalize probabilities
             return np.random.choice(values, size=size, p=probabilities)
         else:
             raise ValueError("Unsupported distribution type.")
@@ -165,6 +185,101 @@ class CustomDistribution(Distribution):
             raise ValueError("PMF is not available for continuous distributions.")
 
 
+class MixtureDistribution(Distribution):
+    def __init__(self, components, weights):
+        """
+        Represents a mixture distribution.
+
+        Parameters:
+        - components (list): List of component distributions (subclasses of Distribution).
+        - weights (list): List of weights for the components (must sum to 1).
+        """
+        # Determine the distribution type based on components
+        if all(component.distribution_type == "continuous" for component in components):
+            distribution_type = "continuous"
+        elif all(component.distribution_type == "discrete" for component in components):
+            distribution_type = "discrete"
+        else:
+            distribution_type = "mixed"
+
+        super().__init__(distribution_type=distribution_type)
+
+        # Validate components and weights
+        assert len(components) == len(weights), "Components and weights must have the same length."
+        assert np.isclose(sum(weights), 1.0), "Weights must sum to 1."
+
+        self.components = components
+        self.weights = weights
+
+    def sample(self, size=1, context=None):
+        """
+        Samples from the mixture distribution.
+
+        Parameters:
+        - size (int): Number of samples to generate.
+        - context (dict): Context for dependency resolution (not used here).
+
+        Returns:
+        - numpy.ndarray: Samples from the mixture distribution.
+        """
+        samples = []
+        # Randomly choose components based on weights
+        component_choices = np.random.choice(len(self.components), size=size, p=self.weights)
+        for i, component in enumerate(self.components):
+            count = np.sum(component_choices == i)
+            if count > 0:
+                samples.append(component.sample(size=count, context=context))
+        return np.concatenate(samples)
+
+    def pdf(self, x):
+        """
+        Evaluates the Probability Density Function (PDF) of the mixture distribution.
+
+        Parameters:
+        - x (float or array-like): Points at which to evaluate the PDF.
+
+        Returns:
+        - numpy.ndarray: The PDF values.
+        """
+        if self.distribution_type != "continuous":
+            raise NotImplementedError("PDF is only defined for continuous distributions.")
+        
+        x = np.array(x)
+        pdf_values = np.zeros_like(x, dtype=float)
+        for component, weight in zip(self.components, self.weights):
+            pdf_values += weight * component.pdf(x)
+        return pdf_values
+
+    def pmf(self, x):
+        """
+        Evaluates the Probability Mass Function (PMF) of the mixture distribution.
+
+        Parameters:
+        - x (int or array-like): Points at which to evaluate the PMF.
+
+        Returns:
+        - numpy.ndarray: The PMF values.
+        """
+        if self.distribution_type != "discrete":
+            raise NotImplementedError("PMF is only defined for discrete distributions.")
+        
+        x = np.array(x)
+        pmf_values = np.zeros_like(x, dtype=float)
+        for component, weight in zip(self.components, self.weights):
+            pmf_values += weight * component.pmf(x)
+        return pmf_values
+
+    def get_all_dependencies(self):
+        """
+        Recursively collects dependencies from all component distributions.
+
+        Returns:
+        - set: A set of dependencies across all components.
+        """
+        dependencies = set()
+        for component in self.components:
+            dependencies.update(component.get_dependencies())
+        return dependencies
 
 
 
@@ -313,6 +428,32 @@ class NormalDistribution(ScipyDistribution):
         # Estimate parameters using Maximum Likelihood Estimation (MLE)
         mu, sigma = norm.fit(data)  # Scipy's MLE fit
         return cls(mu=mu, sigma=sigma)
+    
+    def goodness_of_fit(self, data, test="ks"):
+        """
+        Performs a goodness-of-fit test.
+
+        Parameters:
+        - data (array-like): Observed data to compare against the distribution.
+        - test (str): The goodness-of-fit test to perform ('ks', 'chi2', 'anderson').
+
+        Returns:
+        - dict: Results of the goodness-of-fit test.
+        """
+        if test == "ks":
+            # Kolmogorov-Smirnov Test
+            stat, p_value = kstest(data, self.cdf)
+            return {"test": "Kolmogorov-Smirnov", "statistic": stat, "p_value": p_value}
+
+        elif test == "chi2":
+            raise ValueError("Chi-Square test is not applicable for continuous distributions.")
+
+        elif test == "anderson":
+            result = anderson(data, dist="norm")
+            return {"test": "Anderson-Darling", "statistic": result.statistic, "critical_values": result.critical_values}
+
+        else:
+            raise ValueError("Unsupported test type. Use 'ks', 'chi2', or 'anderson'.")
 
 
 

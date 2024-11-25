@@ -2,18 +2,19 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from .constants import DEFAULT_SAMPLE_SIZE
+from .constants import DEFAULT_PLOTTING_SAMPLE_SIZE
 import networkx as nx
+from scipy.stats import gaussian_kde
+from .core import StochasticVector
 
 
-
-def plot_distribution(stochastic_var, num_samples=DEFAULT_SAMPLE_SIZE, bins=30, density=True, title=None):
+def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, bins=30, density=True, title=None):
     """
     Plots the distribution of a StochasticVariable and includes a vertical line for the mean.
 
     Parameters:
         stochastic_var (StochasticVariable): The stochastic variable to be plotted.
-        num_samples (int): Number of samples to draw for the plot (default: 1000).
+        num_samples (int): Number of samples to draw for the plot (default: DEFAULT_PLOTTING_SAMPLE_SIZE).
         bins (int): Number of bins in the histogram (default: 30).
         density (bool): Whether to normalize the histogram to show density (default: True).
         title (str): Title for the plot (optional).
@@ -29,7 +30,7 @@ def plot_distribution(stochastic_var, num_samples=DEFAULT_SAMPLE_SIZE, bins=30, 
     # Add a density line if it's a continuous variable
     if density and stochastic_var.distribution_type in ['continuous', 'mixed']:
         kde = gaussian_kde(samples)
-        x_range = np.linspace(min(samples), max(samples), 1000)
+        x_range = np.linspace(min(samples), max(samples), DEFAULT_PLOTTING_SAMPLE_SIZE)
         plt.plot(x_range, kde(x_range), color='red', label='Density')
 
     # Add a vertical line for the mean
@@ -48,14 +49,13 @@ def plot_distribution(stochastic_var, num_samples=DEFAULT_SAMPLE_SIZE, bins=30, 
     plt.show()
 
 
-
 def plot_dependency_graph(variables, title="Dependency Graph"):
     """
     Builds, visualizes, and highlights circular dependencies in a stochastic variable dependency graph.
     Ensures that all dependencies of the input variables are included in the graph.
 
     Parameters:
-        - variables (list of StochasticVariable): The stochastic variables to include in the graph.
+        - variables (list of StochasticVariable or StochasticVector): The stochastic variables or vectors to include in the graph.
         - title (str): Title for the graph visualization (default: "Dependency Graph").
 
     Returns:
@@ -70,9 +70,22 @@ def plot_dependency_graph(variables, title="Dependency Graph"):
         visited.add(variable)
         graph.add_node(variable.name)
 
-        for dep in variable.get_all_dependencies():
-            graph.add_edge(dep.name, variable.name)
-            add_to_graph(dep, visited)
+        # Handle dependencies for both StochasticVariable and StochasticVector
+        if isinstance(variable, StochasticVector):
+            # Include all dependencies of the vector's components
+            for var in variable.variables:
+                graph.add_edge(var.name, variable.name)
+                add_to_graph(var, visited)
+
+            # Add transitive dependencies of vector components
+            for dep in variable.get_all_dependencies():
+                graph.add_edge(dep.name, variable.name)
+                add_to_graph(dep, visited)
+        else:
+            # Handle StochasticVariable
+            for dep in variable.get_all_dependencies():
+                graph.add_edge(dep.name, variable.name)
+                add_to_graph(dep, visited)
 
     visited = set()
     for var in variables:

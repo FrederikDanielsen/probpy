@@ -1,124 +1,154 @@
 
-# Probpy - Probability Python Library
+# ProbPy
 
-Probpy is a Python library designed to handle probability-related problems. It provides a convenient interface for defining and manipulating stochastic variables, sampling from probability distributions, performing arithmetic operations on random variables, and calculating empirical probabilities.
+**ProbPy** is a Python library for probabilistic modeling, distribution analysis, and stochastic simulations. It provides intuitive and flexible tools for working with stochastic variables, distributions, transformations, and visualization. The library supports various statistical operations and is built with extensibility and ease of use in mind.
+
+---
 
 ## Features
 
-- **StochasticVariable Class**: 
-  - Encapsulates a probability distribution as a random variable.
-  - Supports sampling, arithmetic operations, and statistical computations.
-  - Enables dynamic parameters with stochastic dependencies.
+- **Stochastic Variables and Vectors**:
+  - Model stochastic behavior with `StochasticVariable` and `StochasticVector` classes.
+  - Perform operations like arithmetic, statistical analysis, and transformations.
 
-- **Probability Function**: 
-  - Calculate the empirical probability of events involving one or more stochastic variables.
-  - Supports complex conditions and multiple variables.
+- **Distributions**:
+  - Support for discrete and continuous distributions such as:
+    - Discrete: Bernoulli, Binomial, Geometric, Poisson, etc.
+    - Continuous: Normal, Exponential, Gamma, Beta, etc.
+  - Create custom and mixture distributions.
 
-- **Extensive Distribution Support**:
-  - Discrete distributions like Bernoulli, Binomial, Poisson, and more.
-  - Continuous distributions like Normal, Exponential, Gamma, and others.
+- **Transformations and Functions**:
+  - Mathematical transformations (e.g., exponential, logarithm, trigonometric).
+  - Operations like norms, dot products, and cross products for vectors.
 
-- **Statistical Methods**:
-  - Compute mean, standard deviation, median, mode, nth moment, and confidence intervals.
+- **Visualization**:
+  - Plot histograms, density functions, and dependency graphs.
 
-- **Arithmetic Operations**:
-  - Combine stochastic variables or scalars with operators (`+`, `-`, `*`, `/`, etc.).
+- **Goodness of Fit**:
+  - Perform tests like Kolmogorov-Smirnov (KS), Anderson-Darling, and Chi-Square.
 
-- **Dynamic Dependencies**:
-  - Create stochastic variables whose distributions depend on other stochastic variables.
+- **Monte Carlo Simulations**:
+  - Run simulations for probabilistic models and summarize results.
+
+---
 
 ## Installation
 
-Install Probpy using pip:
+To install the library, clone the repository and use pip:
 
 ```bash
-pip install probpy
+git clone https://github.com/FrederikDanielsen/probpy.git
+cd probpy
+pip install .
 ```
 
-## Quick Start
+---
 
-### Define a Stochastic Variable
+## Getting Started
+
+### Importing the Library
+
 ```python
-from probpy.distributions import StochasticVariable, NormalDistribution
-
-# Create a stochastic variable with a normal distribution
-X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name="X")
+from probpy.core import StochasticVariable, StochasticVector
+from probpy.distributions import NormalDistribution, ExponentialDistribution
+from probpy.transformations import sqrt, log
+from probpy.monte_carlo import monte_carlo_simulate
 ```
 
-### Sample from a Stochastic Variable
+### Example Usage
+
+#### 1. Create and Sample a Distribution
+
 ```python
-# Generate samples
-single_sample = X.sample()
-multiple_samples = X.sample(size=5)
+from probpy.distributions import NormalDistribution
 
-print("Single sample:", single_sample)
-print("Multiple samples:", multiple_samples)
+# Create a normal distribution with mean=0, std=1
+normal_var = NormalDistribution(mu=0, sigma=1)
+samples = normal_var.sample(size=1000)
 ```
 
-### Perform Arithmetic Operations
+#### 2. Perform Arithmetic Operations
+
 ```python
-from probpy.distributions import StochasticVariable, BinomialDistribution
+from probpy.core import StochasticVariable
 
-# Define two stochastic variables
-Y = StochasticVariable(BinomialDistribution(10, 0.5), name="Y")
+# Create variables
+a = StochasticVariable(value=5)
+b = StochasticVariable(value=10)
 
-# Combine variables
-Z = X + Y * 2
-
-# Sample from the resulting variable
-z_samples = Z.sample(size=10)
-print("Samples from Z:", z_samples)
+# Perform addition
+c = a + b
+print(c.sample(size=5))  # Output: [15, 15, 15, 15, 15]
 ```
 
-### Compute Statistics
+#### 3. Monte Carlo Simulation
+
 ```python
-# Compute mean and confidence interval
-mean = X.mean(size=1000)
-ci = X.confidence_interval(confidence_level=0.95, size=1000)
+from probpy.monte_carlo import monte_carlo_simulate
+from probpy.core import StochasticVariable
 
-print(f"Mean: {mean}")
-print(f"95% Confidence Interval: {ci}")
+# Create variables
+a = StochasticVariable(value=5)
+b = StochasticVariable(value=10)
+
+# Define a model
+def model(x, y):
+    return x * y
+
+# Run simulation
+results = monte_carlo_simulate(model, [a, b], trials=1000)
+print("Mean result:", results.mean())
 ```
 
-### Conditional Probability
+#### 4. Visualization
+
 ```python
-from probpy import probability as P
+from probpy.plots import plot_distribution
 
-# Compute the probability of an event
-prob = P(X, Y, condition=lambda x, y: x + y > 3, size=10000)
-print(f"P(X + Y > 3): {prob}")
+# Plot a normal variable
+plot_distribution(normal_var, num_samples=1000, title="Normal Distribution")
 ```
 
-## Supported Distributions
+---
 
-### Discrete Distributions
-- **DiscreteUniformDistribution**: Uniform distribution over integers `[a, b]`.
-- **BernoulliDistribution**: Single trial with success probability `p`.
-- **BinomialDistribution**: Number of successes in `n` trials with success probability `p`.
-- **GeometricDistribution**: Number of trials until the first success.
-- **PoissonDistribution**: Number of events occurring in a fixed interval.
-- **NegativeBinomialDistribution**: Trials needed to achieve `r` successes.
-- **MultinomialDistribution**: Counts of outcomes in `n` trials with `k` outcomes.
+## Documentation
 
-### Continuous Distributions
-- **ContinuousUniformDistribution**: Uniform distribution over `[a, b]`.
-- **NormalDistribution**: Gaussian distribution with mean `mu` and standard deviation `sigma`.
-- **ExponentialDistribution**: Time between events in a Poisson process.
-- **GammaDistribution**: Gamma distribution with shape `alpha` and rate `lambda_`.
-- **BetaDistribution**: Beta distribution with shape parameters `alpha` and `beta_`.
+For detailed documentation and API references, check the [documentation file](./documentation.md).
 
-## License
+---
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+## Testing
+
+Run the tests to verify the library's functionality:
+
+```bash
+pytest tests/
+```
 
 ---
 
 ## Contributing
 
-Contributions are welcome! If you'd like to contribute, please fork the repository, create a feature branch, and submit a pull request.
+We welcome contributions! Please follow these steps to contribute:
+
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-name`).
+3. Commit your changes (`git commit -m "Add feature-name"`).
+4. Push to the branch (`git push origin feature-name`).
+5. Open a Pull Request.
 
 ---
 
-## Contact
+## License
 
-For questions, suggestions, or support, feel free to reach out to me at danielsen.contact@gmail.com.
+This project is licensed under the [MIT License](./LICENSE).
+
+---
+
+## Acknowledgments
+
+Built with ❤️ using Python and the following libraries:
+- NumPy
+- SciPy
+- Matplotlib
+- NetworkX

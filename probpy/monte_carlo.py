@@ -3,15 +3,17 @@
 import numpy as np
 from .core import StochasticVariable
 
+from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE, DEFAULT_PLOTTING_SAMPLE_SIZE
 
-def monte_carlo_simulate(model, variables: list[StochasticVariable], trials=10000, seed=None):
+
+def monte_carlo_simulate(model, variables: list[StochasticVariable], trials=DEFAULT_STATISTICS_SAMPLE_SIZE, seed=None):
     """
     Performs Monte Carlo simulation.
 
     Parameters:
         - model (callable): A function that takes samples from the variables and returns a result.
         - variables (list of StochasticVariable): Input stochastic variables for the model.
-        - trials (int): Number of Monte Carlo trials (default: 10000).
+        - trials (int): Number of Monte Carlo trials (default: DEFAULT_STATISTICS_SAMPLE_SIZE).
         - seed (int): Random seed for reproducibility (default: None).
 
     Returns:
@@ -81,7 +83,7 @@ def plot_simulation(results, bins=30, density=True, title="Monte Carlo Simulatio
     # Add density line
     if density:
         kde = gaussian_kde(results)
-        x_range = np.linspace(min(results), max(results), 1000)
+        x_range = np.linspace(min(results), max(results), DEFAULT_PLOTTING_SAMPLE_SIZE)
         plt.plot(x_range, kde(x_range), color='red', label='KDE')
 
     # Add mean line
