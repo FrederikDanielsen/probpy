@@ -5,11 +5,15 @@ import numpy as np
 import operator
 from scipy.stats import gaussian_kde
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
-
+from scipy.stats import t
+from scipy.stats import chi2
 
 # Core classes
 
 class StochasticVariable:
+
+    names = set()
+
     def __init__(
         self,
         distribution=None,
@@ -41,7 +45,12 @@ class StochasticVariable:
         self.distribution = distribution
         self.func = func
         self.value = value  # Store the constant value if applicable
-        self.name = name or (str(value) if value is not None else f"SV_{id(self)}")
+
+        if name in StochasticVariable.names:
+            raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
+        else:
+            self.name = name or (str(value) if value is not None else f"SV_{id(self)}")
+            StochasticVariable.names.add(self.name)
 
         if dependencies is None:
             dependencies = []
@@ -242,12 +251,44 @@ class StochasticVariable:
         samples = self.sample(size=size)
         return np.mean(samples ** n)
 
-    def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+    def mean_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
         samples = self.sample(size=size)
         mean = np.mean(samples)
         sem = np.std(samples, ddof=1) / np.sqrt(size)
         h = sem * t.ppf((1 + confidence_level) / 2., size - 1)
+        if self.distribution_type == "discrete":
+            return np.floor(mean-h), np.ceil(mean+h)
         return mean - h, mean + h
+    
+    def variance_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+        samples = self.sample(size=size)
+        n = size
+        sample_variance = np.var(samples, ddof=1)  # Sample variance with Bessel's correction
+        alpha = 1 - confidence_level
+        
+        # Compute critical chi-squared values
+        chi2_lower = chi2.ppf(alpha / 2, df=n-1)  # Lower critical value
+        chi2_upper = chi2.ppf(1 - alpha / 2, df=n-1)  # Upper critical value
+        
+        # Calculate confidence interval
+        lower_bound = (n - 1) * sample_variance / chi2_upper
+        upper_bound = (n - 1) * sample_variance / chi2_lower
+        
+        if self.distribution_type == "discrete":
+            return np.floor(lower_bound), np.ceil(upper_bound)
+        return lower_bound, upper_bound
+
+    def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+        samples = self.sample(size=size)
+
+        alpha = 1 - confidence_level
+        lower_percentile = 100 * (alpha / 2)  # e.g., 2.5% for 95% confidence
+        upper_percentile = 100 * (1 - alpha / 2)  # e.g., 97.5% for 95% confidence
+        
+        lower_bound = np.percentile(samples, lower_percentile)
+        upper_bound = np.percentile(samples, upper_percentile)
+        
+        return lower_bound, upper_bound
 
 
     # Overloaded arithmetic operators
@@ -280,6 +321,9 @@ class StochasticVariable:
 
     def __rpow__(self, other):
         return apply(operator.pow, other, self, name=f"({other} ** {self.name})")
+
+    def __del__(self):
+        StochasticVariable.names.remove(self.name)
 
 
 class StochasticVector:

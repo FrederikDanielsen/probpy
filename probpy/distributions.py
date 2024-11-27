@@ -6,7 +6,7 @@ from scipy.stats import norm, lognorm, uniform, expon, poisson, randint, bernoul
 from .core import StochasticVariable
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 from abc import ABC, abstractmethod
-
+from scipy.stats import t
 
 
 # Base abstract class for all distributions
@@ -94,12 +94,51 @@ class Distribution(ABC):
         samples = self.sample(size=size)
         return np.mean(samples ** n)
 
-    def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+    #def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+    #    samples = self.sample(size=size)
+    #    mean = np.mean(samples)
+    #    sem = np.std(samples, ddof=1) / np.sqrt(size)
+    #    h = sem * t.ppf((1 + confidence_level) / 2., size - 1)
+    #    return mean - h, mean + h
+    
+    def mean_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
         samples = self.sample(size=size)
         mean = np.mean(samples)
         sem = np.std(samples, ddof=1) / np.sqrt(size)
         h = sem * t.ppf((1 + confidence_level) / 2., size - 1)
+        if self.distribution_type == "discrete":
+            return np.floor(mean-h), np.ceil(mean+h)
         return mean - h, mean + h
+    
+    def variance_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+        samples = self.sample(size=size)
+        n = size
+        sample_variance = np.var(samples, ddof=1)  # Sample variance with Bessel's correction
+        alpha = 1 - confidence_level
+        
+        # Compute critical chi-squared values
+        chi2_lower = chi2.ppf(alpha / 2, df=n-1)  # Lower critical value
+        chi2_upper = chi2.ppf(1 - alpha / 2, df=n-1)  # Upper critical value
+        
+        # Calculate confidence interval
+        lower_bound = (n - 1) * sample_variance / chi2_upper
+        upper_bound = (n - 1) * sample_variance / chi2_lower
+        
+        if self.distribution_type == "discrete":
+            return np.floor(lower_bound), np.ceil(upper_bound)
+        return lower_bound, upper_bound
+
+    def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
+        samples = self.sample(size=size)
+
+        alpha = 1 - confidence_level
+        lower_percentile = 100 * (alpha / 2)  # e.g., 2.5% for 95% confidence
+        upper_percentile = 100 * (1 - alpha / 2)  # e.g., 97.5% for 95% confidence
+        
+        lower_bound = np.percentile(samples, lower_percentile)
+        upper_bound = np.percentile(samples, upper_percentile)
+        
+        return lower_bound, upper_bound
 
 
 # Base class for parametric distributions, handles parameter resolution and dependencies
