@@ -12,8 +12,17 @@ from scipy.stats import chi2
 
 class StochasticVariable:
 
-    names = set()
+    instances = []
 
+    @classmethod
+    def delete_all_instances(cls):
+        # Delete all instances by iterating over the tracked instances
+
+        while cls.instances:
+            instance = cls.instances.pop() 
+            del instance
+
+        
     def __init__(
         self,
         distribution=None,
@@ -46,11 +55,12 @@ class StochasticVariable:
         self.func = func
         self.value = value  # Store the constant value if applicable
 
-        if name in StochasticVariable.names:
-            raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
-        else:
-            self.name = name or (str(value) if value is not None else f"SV_{id(self)}")
-            StochasticVariable.names.add(self.name)
+        for instance in StochasticVariable.instances:
+            if instance.name == name:
+                raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
+
+        self.name = name or (str(value) if value is not None else f"SV_{id(self)}")
+        StochasticVariable.instances.append(self)
 
         if dependencies is None:
             dependencies = []
@@ -322,11 +332,9 @@ class StochasticVariable:
     def __rpow__(self, other):
         return apply(operator.pow, other, self, name=f"({other} ** {self.name})")
 
-    def __del__(self):
-        StochasticVariable.names.remove(self.name)
-
 
 class StochasticVector:
+
     def __init__(self, *variables, name=None):
         """
         Initializes a stochastic vector.
@@ -504,6 +512,24 @@ class StochasticVector:
     def __repr__(self):
         return f"StochasticVector(name={self.name}, variables={[var.name for var in self.variables]})"
 
+
+def delete(object):
+    """
+    Deletes StochasticVariable or StochasticVector instance.
+    If object is a StochasticVector all StochasticVariables in te vector are deleted.
+
+    Input parameters:
+    object: (StochasticVariable or StochasticVector)
+    """
+    if isinstance(object, StochasticVariable):
+        if object in StochasticVariable.instances:
+            StochasticVariable.instances.remove(object) 
+            del object
+        return
+    elif isinstance(object, StochasticVector):
+        for variable in object.variables:
+            delete(variable)
+        del object
 
 
 # Core functions
