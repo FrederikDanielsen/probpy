@@ -62,7 +62,7 @@ def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, 
     plt.show()
 
 
-def plot_dependency_graph(variables, title="Dependency Graph"):
+def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
     """
     Builds, visualizes, and highlights circular dependencies in a stochastic variable dependency graph.
     Ensures that all dependencies of the input variables are included in the graph.
@@ -74,6 +74,9 @@ def plot_dependency_graph(variables, title="Dependency Graph"):
     Returns:
         - graph (networkx.DiGraph): The constructed dependency graph.
     """
+    
+    variables = vars
+    
     # Build the dependency graph
     graph = nx.DiGraph()
 
@@ -86,13 +89,18 @@ def plot_dependency_graph(variables, title="Dependency Graph"):
         if isinstance(variable, StochasticVector):
             # For StochasticVector, add edges from its components and their dependencies
             for var in variable.variables:
-                graph.add_edge(var.name, variable.name)
-                add_to_graph(var, visited)
+                deps = var.get_all_dependencies()
+                for dep in deps:
+                    if not dep.constant and len(dep.dependencies) < depth:
+                        graph.add_edge(dep.name, variable.name)
+                        add_to_graph(dep, visited)
         elif isinstance(variable, StochasticVariable):
             # Add edges for dependencies
-            for dep in variable.dependencies:
-                graph.add_edge(dep.name, variable.name)
-                add_to_graph(dep, visited)
+            deps = variable.get_all_dependencies()
+            for dep in deps:
+                if not dep.constant and len(dep.dependencies) < depth:
+                    graph.add_edge(dep.name, variable.name)
+                    add_to_graph(dep, visited)
         else:
             raise ValueError(f"Unsupported variable type: {type(variable)}")
 

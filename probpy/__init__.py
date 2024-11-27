@@ -7,3 +7,10 @@ from .transformations import *
 
 __version__ = "0.1.0"
 __author__ = "Frederik Danielsen"
+
+
+# IDEAS FOR IMPROVEMENT
+# - Goodness of fit
+# - Conditional distributions (X.given(Y=y))
+# - Multivariate distributions
+# - Dont include constants in graphs

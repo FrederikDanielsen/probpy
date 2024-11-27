@@ -30,6 +30,7 @@ class StochasticVariable:
         name=None,
         distribution_type=None,
         value=None,
+        constant=False
     ):
         """
         Represents a stochastic variable.
@@ -53,6 +54,7 @@ class StochasticVariable:
         self.distribution = distribution
         self.func = func
         self.value = value  # Store the constant value if applicable
+        self.constant = constant  # True if self is a Dummy StochasticVariable, that is, a constant number
 
         for instance in StochasticVariable.instances:
             if instance.name == name:
@@ -302,33 +304,53 @@ class StochasticVariable:
 
     # Overloaded arithmetic operators
     def __add__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.add, self, other, name=f"({self.name} + {other.name})")
         return apply(operator.add, self, other, name=f"({self.name} + {other})")
 
     def __radd__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.add, other, self, name=f"({other.name} + {self.name})")
         return apply(operator.add, other, self, name=f"({other} + {self.name})")
 
     def __sub__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.sub, self, other, name=f"({self.name} - {other.name})")
         return apply(operator.sub, self, other, name=f"({self.name} - {other})")
 
     def __rsub__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.sub, other, self, name=f"({other.name} - {self.name})")
         return apply(operator.sub, other, self, name=f"({other} - {self.name})")
 
     def __mul__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.mul, self, other, name=f"({self.name} * {other.name})")
         return apply(operator.mul, self, other, name=f"({self.name} * {other})")
 
     def __rmul__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.mul, other, self, name=f"({other.name} * {self.name})")
         return apply(operator.mul, other, self, name=f"({other} * {self.name})")
 
     def __truediv__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.truediv, self, other, name=f"({self.name} / {other.name})")
         return apply(operator.truediv, self, other, name=f"({self.name} / {other})")
 
     def __rtruediv__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.truediv, other, self, name=f"({other.name} / {self.name})")
         return apply(operator.truediv, other, self, name=f"({other} / {self.name})")
 
     def __pow__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.pow, self, other, name=f"({self.name} ** {other.name})")
         return apply(operator.pow, self, other, name=f"({self.name} ** {other})")
 
     def __rpow__(self, other):
+        if isinstance(other, StochasticVariable):
+            return apply(operator.pow, other, self, name=f"({other.name} ** {self.name})")
         return apply(operator.pow, other, self, name=f"({other} ** {self.name})")
 
 
@@ -535,7 +557,7 @@ def delete(object):
 
 def apply(func, *args, name=None):
     dependencies = [
-        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg)
+        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg, constant=True, name=f"{arg}")
         for arg in args
     ]
 
