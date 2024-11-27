@@ -1,12 +1,11 @@
-# mmonte_carlo.py
+# monte_carlo.py
 
+# IMPORTS
 import numpy as np
-from .core import StochasticVariable
-
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE, DEFAULT_PLOTTING_SAMPLE_SIZE
+from scipy.stats import t
 
-
-def monte_carlo_simulate(model, variables: list[StochasticVariable], trials=DEFAULT_STATISTICS_SAMPLE_SIZE, seed=None):
+def monte_carlo_simulate(model, variables, trials=DEFAULT_STATISTICS_SAMPLE_SIZE, seed=None):
     """
     Performs Monte Carlo simulation.
 
@@ -22,11 +21,17 @@ def monte_carlo_simulate(model, variables: list[StochasticVariable], trials=DEFA
     if seed is not None:
         np.random.seed(seed)
 
+    # Use a context to cache samples and ensure consistency
+    context = {}
+
     # Generate samples for each stochastic variable
-    samples = [var.sample(size=trials) for var in variables]
+    samples = [var.sample(size=trials, context=context) for var in variables]
 
     # Evaluate the model for each set of sampled inputs
-    results = np.array([model(*args) for args in zip(*samples)])
+    results = model(*samples)
+
+    # Ensure results are a NumPy array
+    results = np.asarray(results)
 
     return results
 
@@ -44,21 +49,22 @@ def summarize_simulation(results, confidence_level=0.95):
                           and confidence interval.
     """
     mean = np.mean(results)
-    variance = np.var(results)
-    std_dev = np.std(results)
+    variance = np.var(results, ddof=1)
+    std_dev = np.std(results, ddof=1)
     median = np.median(results)
 
-    # Confidence interval
-    alpha = 1 - confidence_level
-    lower_bound = np.percentile(results, 100 * alpha / 2)
-    upper_bound = np.percentile(results, 100 * (1 - alpha / 2))
+    # Confidence interval using the t-distribution
+    n = len(results)
+    sem = std_dev / np.sqrt(n)
+    h = sem * t.ppf((1 + confidence_level) / 2., n - 1)
+    confidence_interval = (mean - h, mean + h)
 
     return {
         "mean": mean,
         "variance": variance,
         "std_dev": std_dev,
         "median": median,
-        "confidence_interval": (lower_bound, upper_bound),
+        "confidence_interval": confidence_interval,
     }
 
 
@@ -82,9 +88,12 @@ def plot_simulation(results, bins=30, density=True, title="Monte Carlo Simulatio
 
     # Add density line
     if density:
-        kde = gaussian_kde(results)
-        x_range = np.linspace(min(results), max(results), DEFAULT_PLOTTING_SAMPLE_SIZE)
-        plt.plot(x_range, kde(x_range), color='red', label='KDE')
+        try:
+            kde = gaussian_kde(results)
+            x_range = np.linspace(np.min(results), np.max(results), DEFAULT_PLOTTING_SAMPLE_SIZE)
+            plt.plot(x_range, kde(x_range), color='red', label='KDE')
+        except Exception as e:
+            print(f"Error computing KDE: {e}")
 
     # Add mean line
     mean = np.mean(results)
@@ -97,3 +106,5 @@ def plot_simulation(results, bins=30, density=True, title="Monte Carlo Simulatio
     plt.legend()
     plt.grid(True)
     plt.show()
+
+

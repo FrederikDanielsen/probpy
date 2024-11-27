@@ -1,128 +1,119 @@
 #transformations.py
 
+# IMPORTS
+from .core import StochasticVariable, apply
 import numpy as np
-from .core import apply
-
 
 # Exponential and logarithmic functions
 def exp(X):
-    return apply(np.exp, X, name=f"exp({X.name})" if hasattr(X, "name") else "exp")
+    return apply(np.exp, X, name=f"exp({X.name if isinstance(X, StochasticVariable) else X})")
 
 def expm1(X):
-    return apply(np.expm1, X, name=f"expm1({X.name})" if hasattr(X, "name") else "expm1")
+    return apply(np.expm1, X, name=f"expm1({X.name if isinstance(X, StochasticVariable) else X})")
 
 def log(X):
-    return apply(np.log, X, name=f"log({X.name})" if hasattr(X, "name") else "log")
+    return apply(np.log, X, name=f"log({X.name if isinstance(X, StochasticVariable) else X})")
 
 def log10(X):
-    return apply(np.log10, X, name=f"log10({X.name})" if hasattr(X, "name") else "log10")
+    return apply(np.log10, X, name=f"log10({X.name if isinstance(X, StochasticVariable) else X})")
 
 def log2(X):
-    return apply(np.log2, X, name=f"log2({X.name})" if hasattr(X, "name") else "log2")
+    return apply(np.log2, X, name=f"log2({X.name if isinstance(X, StochasticVariable) else X})")
 
 def log1p(X):
-    return apply(np.log1p, X, name=f"log1p({X.name})" if hasattr(X, "name") else "log1p")
-
+    return apply(np.log1p, X, name=f"log1p({X.name if isinstance(X, StochasticVariable) else X})")
 
 # Power functions
 def sqrt(X):
-    return apply(np.sqrt, X, name=f"sqrt({X.name})" if hasattr(X, "name") else "sqrt")
+    return apply(np.sqrt, X, name=f"sqrt({X.name if isinstance(X, StochasticVariable) else X})")
 
 def square(X):
-    return apply(np.square, X, name=f"square({X.name})" if hasattr(X, "name") else "square")
+    return apply(np.square, X, name=f"square({X.name if isinstance(X, StochasticVariable) else X})")
 
 def power(X, y):
-    x_name = X.name if hasattr(X, "name") else "X"
-    y_name = y.name if hasattr(y, "name") else str(y)
-    return apply(np.power, X, y, name=f"power({x_name}, {y_name})")
+    return apply(np.power, X, y, name=f"power({X.name if isinstance(X, StochasticVariable) else X}, {y.name if isinstance(y, StochasticVariable) else y})")
 
 def cbrt(X):
-    return apply(np.cbrt, X, name=f"cbrt({X.name})" if hasattr(X, "name") else "cbrt")
+    return apply(np.cbrt, X, name=f"cbrt({X.name if isinstance(X, StochasticVariable) else X})")
 
 def reciprocal(X):
-    return apply(lambda x: 1 / x, X, name=f"reciprocal({X.name})" if hasattr(X, "name") else "reciprocal")
-
+    return apply(np.reciprocal, X, name=f"reciprocal({X.name if isinstance(X, StochasticVariable) else X})")
 
 # Trigonometric functions
 def sin(X):
-    return apply(np.sin, X, name=f"sin({X.name})" if hasattr(X, "name") else "sin")
+    return apply(np.sin, X, name=f"sin({X.name if isinstance(X, StochasticVariable) else X})")
 
 def cos(X):
-    return apply(np.cos, X, name=f"cos({X.name})" if hasattr(X, "name") else "cos")
+    return apply(np.cos, X, name=f"cos({X.name if isinstance(X, StochasticVariable) else X})")
 
 def tan(X):
-    return apply(np.tan, X, name=f"tan({X.name})" if hasattr(X, "name") else "tan")
+    return apply(np.tan, X, name=f"tan({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arcsin(X):
-    return apply(np.arcsin, X, name=f"arcsin({X.name})" if hasattr(X, "name") else "arcsin")
+    return apply(np.arcsin, X, name=f"arcsin({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arccos(X):
-    return apply(np.arccos, X, name=f"arccos({X.name})" if hasattr(X, "name") else "arccos")
+    return apply(np.arccos, X, name=f"arccos({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arctan(X):
-    return apply(np.arctan, X, name=f"arctan({X.name})" if hasattr(X, "name") else "arctan")
+    return apply(np.arctan, X, name=f"arctan({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arctan2(X, Y):
-    x_name = X.name if hasattr(X, "name") else "X"
-    y_name = Y.name if hasattr(Y, "name") else "Y"
-    return apply(np.arctan2, X, Y, name=f"arctan2({x_name}, {y_name})")
+    return apply(np.arctan2, X, Y, name=f"arctan2({X.name if isinstance(X, StochasticVariable) else X}, {Y.name if isinstance(Y, StochasticVariable) else Y})")
 
 def hypot(X, Y):
-    x_name = X.name if hasattr(X, "name") else "X"
-    y_name = Y.name if hasattr(Y, "name") else "Y"
-    return apply(np.hypot, X, Y, name=f"hypot({x_name}, {y_name})")
-
+    return apply(np.hypot, X, Y, name=f"hypot({X.name if isinstance(X, StochasticVariable) else X}, {Y.name if isinstance(Y, StochasticVariable) else Y})")
 
 # Hyperbolic functions
 def sinh(X):
-    return apply(np.sinh, X, name=f"sinh({X.name})" if hasattr(X, "name") else "sinh")
+    return apply(np.sinh, X, name=f"sinh({X.name if isinstance(X, StochasticVariable) else X})")
 
 def cosh(X):
-    return apply(np.cosh, X, name=f"cosh({X.name})" if hasattr(X, "name") else "cosh")
+    return apply(np.cosh, X, name=f"cosh({X.name if isinstance(X, StochasticVariable) else X})")
 
 def tanh(X):
-    return apply(np.tanh, X, name=f"tanh({X.name})" if hasattr(X, "name") else "tanh")
+    return apply(np.tanh, X, name=f"tanh({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arcsinh(X):
-    return apply(np.arcsinh, X, name=f"arcsinh({X.name})" if hasattr(X, "name") else "arcsinh")
+    return apply(np.arcsinh, X, name=f"arcsinh({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arccosh(X):
-    return apply(np.arccosh, X, name=f"arccosh({X.name})" if hasattr(X, "name") else "arccosh")
+    return apply(np.arccosh, X, name=f"arccosh({X.name if isinstance(X, StochasticVariable) else X})")
 
 def arctanh(X):
-    return apply(np.arctanh, X, name=f"arctanh({X.name})" if hasattr(X, "name") else "arctanh")
+    return apply(np.arctanh, X, name=f"arctanh({X.name if isinstance(X, StochasticVariable) else X})")
 
-
-# Round and clipping
-def round(X, decimals=0):
-    return apply(lambda x: np.round(x, decimals=decimals), X, name=f"round({X.name}, {decimals})" if hasattr(X, "name") else f"round_{decimals}")
+# Round and clipping functions
+def round_(X, decimals=0):  # Avoid overriding built-in 'round'
+    def func(x):
+        return np.round(x, decimals=decimals)
+    return apply(func, X, name=f"round({X.name if isinstance(X, StochasticVariable) else X}, decimals={decimals})")
 
 def floor(X):
-    return apply(np.floor, X, name=f"floor({X.name})" if hasattr(X, "name") else "floor")
+    return apply(np.floor, X, name=f"floor({X.name if isinstance(X, StochasticVariable) else X})")
 
 def ceil(X):
-    return apply(np.ceil, X, name=f"ceil({X.name})" if hasattr(X, "name") else "ceil")
+    return apply(np.ceil, X, name=f"ceil({X.name if isinstance(X, StochasticVariable) else X})")
 
 def trunc(X):
-    return apply(np.trunc, X, name=f"trunc({X.name})" if hasattr(X, "name") else "trunc")
+    return apply(np.trunc, X, name=f"trunc({X.name if isinstance(X, StochasticVariable) else X})")
 
 def clip(X, a_min, a_max):
-    return apply(lambda x: np.clip(x, a_min, a_max), X, name=f"clip({X.name}, {a_min}, {a_max})" if hasattr(X, "name") else f"clip_{a_min}_{a_max}")
+    def func(x):
+        return np.clip(x, a_min, a_max)
+    return apply(func, X, name=f"clip({X.name if isinstance(X, StochasticVariable) else X}, {a_min}, {a_max})")
 
-
-# Sign and comparison
-def abs(X):
-    return apply(np.abs, X, name=f"abs({X.name})" if hasattr(X, "name") else "abs")
+# Sign and comparison functions
+def abs_(X):  # Avoid overriding built-in 'abs'
+    return apply(np.abs, X, name=f"abs({X.name if isinstance(X, StochasticVariable) else X})")
 
 def sign(X):
-    return apply(np.sign, X, name=f"sign({X.name})" if hasattr(X, "name") else "sign")
+    return apply(np.sign, X, name=f"sign({X.name if isinstance(X, StochasticVariable) else X})")
 
-def min(*Xs):
-    x_names = [x.name if hasattr(x, "name") else "X" for x in Xs]
-    return apply(np.min, *Xs, name=f"min({', '.join(x_names)})")
+def min_(*Xs):  # Avoid overriding built-in 'min'
+    names = ', '.join([x.name if isinstance(x, StochasticVariable) else str(x) for x in Xs])
+    return apply(lambda *args: np.minimum.reduce(args), *Xs, name=f"min({names})")
 
-def max(*Xs):
-    x_names = [x.name if hasattr(x, "name") else "X" for x in Xs]
-    return apply(np.max, *Xs, name=f"max({', '.join(x_names)})")
-
-
+def max_(*Xs):  # Avoid overriding built-in 'max'
+    names = ', '.join([x.name if isinstance(x, StochasticVariable) else str(x) for x in Xs])
+    return apply(lambda *args: np.maximum.reduce(args), *Xs, name=f"max({names})")

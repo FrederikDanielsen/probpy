@@ -11,3 +11,6 @@ env/
 build/
 dist/
 *.egg-info
+
+# Ignore temporary files
+tmp/

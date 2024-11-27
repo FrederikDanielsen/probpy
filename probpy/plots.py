@@ -1,11 +1,12 @@
 #plots.py
 
+# IMPORTS
 import matplotlib.pyplot as plt
 import numpy as np
-from .constants import DEFAULT_PLOTTING_SAMPLE_SIZE
 import networkx as nx
 from scipy.stats import gaussian_kde
-from .core import StochasticVector
+from .constants import DEFAULT_PLOTTING_SAMPLE_SIZE
+from .core import StochasticVariable, StochasticVector
 
 
 def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, bins=30, density=True, title=None):
@@ -29,9 +30,12 @@ def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, 
 
     # Add a density line if it's a continuous variable
     if density and stochastic_var.distribution_type in ['continuous', 'mixed']:
-        kde = gaussian_kde(samples)
-        x_range = np.linspace(min(samples), max(samples), DEFAULT_PLOTTING_SAMPLE_SIZE)
-        plt.plot(x_range, kde(x_range), color='red', label='Density')
+        try:
+            kde = gaussian_kde(samples)
+            x_range = np.linspace(np.min(samples), np.max(samples), num_samples)
+            plt.plot(x_range, kde(x_range), color='red', label='Density')
+        except Exception as e:
+            print(f"Error computing KDE: {e}")
 
     # Add a vertical line for the mean
     plt.axvline(mean_value, color='green', linestyle='--', linewidth=2, label=f'Mean = {mean_value:.2f}')
@@ -70,32 +74,30 @@ def plot_dependency_graph(variables, title="Dependency Graph"):
         visited.add(variable)
         graph.add_node(variable.name)
 
-        # Handle dependencies for both StochasticVariable and StochasticVector
         if isinstance(variable, StochasticVector):
-            # Include all dependencies of the vector's components
+            # For StochasticVector, add edges from its components and their dependencies
             for var in variable.variables:
                 graph.add_edge(var.name, variable.name)
                 add_to_graph(var, visited)
-
-            # Add transitive dependencies of vector components
-            for dep in variable.get_all_dependencies():
+        elif isinstance(variable, StochasticVariable):
+            # Add edges for dependencies
+            for dep in variable.dependencies:
                 graph.add_edge(dep.name, variable.name)
                 add_to_graph(dep, visited)
         else:
-            # Handle StochasticVariable
-            for dep in variable.get_all_dependencies():
-                graph.add_edge(dep.name, variable.name)
-                add_to_graph(dep, visited)
+            raise ValueError(f"Unsupported variable type: {type(variable)}")
 
     visited = set()
     for var in variables:
         add_to_graph(var, visited)
 
     # Detect circular dependencies
-    circular_dependencies = []
+    circular_dependencies = set()
     try:
-        cycles = list(nx.find_cycle(graph, orientation="original"))
-        circular_dependencies = [edge[0] for edge in cycles] + [cycles[-1][1]]  # Nodes involved in cycles
+        cycles = list(nx.simple_cycles(graph))
+        if cycles:
+            # Flatten the list of cycles
+            circular_dependencies = set(node for cycle in cycles for node in cycle)
     except nx.NetworkXNoCycle:
         pass
 
@@ -104,9 +106,19 @@ def plot_dependency_graph(variables, title="Dependency Graph"):
     pos = nx.spring_layout(graph)
 
     # Color nodes
-    node_colors = [
-        "red" if node in circular_dependencies else "lightblue" for node in graph.nodes()
-    ]
+    node_colors = []
+    for node in graph.nodes():
+        if node in circular_dependencies:
+            color = "red"
+        else:
+            # Differentiate between variables and vectors
+            # Assuming names of vectors are unique and set in the StochasticVector class
+            variable = next((var for var in visited if var.name == node), None)
+            if isinstance(variable, StochasticVector):
+                color = "lightgreen"
+            else:
+                color = "lightblue"
+        node_colors.append(color)
 
     nx.draw(
         graph,
@@ -121,7 +133,9 @@ def plot_dependency_graph(variables, title="Dependency Graph"):
 
     # Highlight circular edges
     if circular_dependencies:
-        circular_edges = [(u, v) for u, v in graph.edges if u in circular_dependencies and v in circular_dependencies]
+        circular_edges = [
+            (u, v) for u, v in graph.edges if u in circular_dependencies and v in circular_dependencies
+        ]
         nx.draw_networkx_edges(
             graph,
             pos,
