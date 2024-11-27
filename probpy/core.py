@@ -5,8 +5,7 @@ import numpy as np
 import operator
 from scipy.stats import gaussian_kde
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
-from scipy.stats import t
-from scipy.stats import chi2
+from scipy.stats import t, chi2, distributions
 
 # Core classes
 
@@ -144,7 +143,7 @@ class StochasticVariable:
 
         samples = self._generate_samples(size, context)
         context[self] = samples
-        return samples
+        return samples if len(samples) > 1 else samples[0]
 
     def _generate_samples(self, size, context):
         if self.value is not None:
@@ -268,7 +267,7 @@ class StochasticVariable:
         h = sem * t.ppf((1 + confidence_level) / 2., size - 1)
         if self.distribution_type == "discrete":
             return np.floor(mean-h), np.ceil(mean+h)
-        return mean - h, mean + h
+        return float(mean - h), float(mean + h)
     
     def variance_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
         samples = self.sample(size=size)
@@ -286,7 +285,7 @@ class StochasticVariable:
         
         if self.distribution_type == "discrete":
             return np.floor(lower_bound), np.ceil(upper_bound)
-        return lower_bound, upper_bound
+        return float(lower_bound), float(upper_bound)
 
     def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
         samples = self.sample(size=size)
@@ -298,7 +297,7 @@ class StochasticVariable:
         lower_bound = np.percentile(samples, lower_percentile)
         upper_bound = np.percentile(samples, upper_percentile)
         
-        return lower_bound, upper_bound
+        return float(lower_bound), float(upper_bound)
 
 
     # Overloaded arithmetic operators
@@ -593,3 +592,11 @@ def probability(condition, *args, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=N
     prob = np.mean(condition_results)
 
     return prob
+
+def set_random_seed(seed):
+    """
+    Set the random seed for reproducibility in numpy and scipy.
+    """
+    np.random.seed(seed)
+    # Optionally, also configure scipy.stats if applicable
+    distributions.rng = np.random.default_rng(seed)

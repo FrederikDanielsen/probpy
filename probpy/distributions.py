@@ -396,18 +396,30 @@ class MixtureDistribution(Distribution):
 
 class DiscreteUniformDistribution(StandardDistribution):
     def __init__(self, a, b):
+        if not isinstance(a, int):
+            raise ValueError(f"Argument 'a' must be an integer. Got a={a}")
+        if not isinstance(b, int):
+            raise ValueError(f"Argument 'b' must be an integer. Got b={b}")
         super().__init__(dist=randint, low=a, high=b + 1)
 
 class BernoulliDistribution(StandardDistribution):
     def __init__(self, p):
+        if p > 1 or p < 0:
+            raise ValueError(f"Argument 'p' must be in the interval [0,1]. Got p={p}")
         super().__init__(dist=bernoulli, p=p)
 
 class BinomialDistribution(StandardDistribution):
     def __init__(self, n, p):
+        if (not isinstance(n, int)) or n < 0:
+            raise ValueError(f"Argument 'n' must be a positive integer. Got n={n}")
+        if p > 1 or p < 0:
+            raise ValueError(f"Argument 'p' must be in the interval [0,1]. Got p={p}")
         super().__init__(dist=binom, n=n, p=p)
 
 class GeometricDistribution(StandardDistribution):
     def __init__(self, p):
+        if p > 1 or p < 0:
+            raise ValueError(f"Argument 'p' must be in the interval [0,1]. Got p={p}")
         super().__init__(dist=geom, p=p)
 
 class HypergeometricDistribution(StandardDistribution):
@@ -418,6 +430,12 @@ class HypergeometricDistribution(StandardDistribution):
             n: Number of success states in the population.
             N: Number of draws.
         """
+        if (not isinstance(n, int)) or n < 0:
+            raise ValueError(f"Argument 'n' must be a positive integer. Got n={n}")
+        if (not isinstance(N, int)) or N < 0:
+            raise ValueError(f"Argument 'N' must be a positive integer. Got N={N}")
+        if (not isinstance(M, int)) or M < 0:
+            raise ValueError(f"Argument 'M' must be a positive integer. Got M={M}")
         super().__init__(dist=hypergeom, M=M, n=n, N=N)
 
 class PoissonDistribution(StandardDistribution):
@@ -426,6 +444,10 @@ class PoissonDistribution(StandardDistribution):
 
 class NegativeBinomialDistribution(StandardDistribution):
     def __init__(self, n, p):
+        if (not isinstance(n, int)) or n < 0:
+            raise ValueError(f"Argument 'n' must be a positive integer. Got n={n}")
+        if p > 1 or p < 0:
+            raise ValueError(f"Argument 'p' must be in the interval [0,1]. Got p={p}")
         super().__init__(dist=nbinom, n=n, p=p)
 
 class MultinomialDistribution(StandardDistribution):
@@ -435,6 +457,10 @@ class MultinomialDistribution(StandardDistribution):
             n: Number of trials.
             p: Sequence of probabilities. Must sum to 1.
         """
+        if (not isinstance(n, int)) or n < 0:
+            raise ValueError(f"Argument 'n' must be a positive integer. Got n={n}")
+        if not np.isclose(sum(p), 1):
+            raise ValueError(f"Argument 'p' must be a list of values summing to 1. Got sum(p)={sum(p)}")
         super().__init__(dist=multinomial, n=n, p=p)
 
     def sample(self, size=1, context=None):

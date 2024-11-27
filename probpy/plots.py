@@ -24,27 +24,36 @@ def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, 
     samples = stochastic_var.sample(size=num_samples)
     mean_value = np.mean(samples)  # Calculate the mean of the samples
 
-    # Plot histogram
     plt.figure(figsize=(8, 6))
-    plt.hist(samples, bins=bins, density=density, alpha=0.6, color='blue', edgecolor='black', label='Histogram')
 
-    # Add a density line if it's a continuous variable
-    if density and stochastic_var.distribution_type in ['continuous', 'mixed']:
-        try:
-            kde = gaussian_kde(samples)
-            x_range = np.linspace(np.min(samples), np.max(samples), num_samples)
-            plt.plot(x_range, kde(x_range), color='red', label='Density')
-        except Exception as e:
-            print(f"Error computing KDE: {e}")
+    if stochastic_var.distribution_type == "discrete":
+        # Plot histogram for discrete values
+        unique_values, counts = np.unique(samples, return_counts=True)
+        plt.bar(
+            unique_values, counts, width=0.8, color='blue', edgecolor='black', alpha=0.7, label='Histogram'
+        )
+        plt.ylabel("Frequency")
+    else:
+        # Plot histogram for continuous or mixed distributions
+        plt.hist(samples, bins=bins, density=density, alpha=0.6, color='blue', edgecolor='black', label='Histogram')
+
+        # Add a density line if it's a continuous variable
+        if density and stochastic_var.distribution_type in ['continuous', 'mixed']:
+            try:
+                kde = gaussian_kde(samples)
+                x_range = np.linspace(np.min(samples), np.max(samples), num_samples)
+                plt.plot(x_range, kde(x_range), color='red', label='Density')
+            except Exception as e:
+                print(f"Error computing KDE: {e}")
+        plt.ylabel("Density" if density else "Frequency")
 
     # Add a vertical line for the mean
     plt.axvline(mean_value, color='green', linestyle='--', linewidth=2, label=f'Mean = {mean_value:.2f}')
 
     # Set labels and title
-    plt.xlabel('Value')
-    plt.ylabel('Density' if density else 'Frequency')
+    plt.xlabel("Value")
     if title is None:
-        title = f'Distribution of {stochastic_var.name}'
+        title = f"Distribution of {stochastic_var.name}"
     plt.title(title)
     plt.legend()
 

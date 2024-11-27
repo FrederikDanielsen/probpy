@@ -45,6 +45,7 @@ LARGE_SAMPLE = 1000000
 class TestDistributions(unittest.TestCase):
 
     def test_normal_distribution_properties(self):
+        StochasticVariable.delete_all_instances()
         mu = 5
         sigma = 2
         dist = NormalDistribution(mu=mu, sigma=sigma)
@@ -53,6 +54,7 @@ class TestDistributions(unittest.TestCase):
         self.assertAlmostEqual(np.std(samples), sigma, delta=0.05)
 
     def test_exponential_distribution_properties(self):
+        StochasticVariable.delete_all_instances()
         lambd = 0.5
         dist = ExponentialDistribution(lambd=lambd)
         samples = dist.sample(size=LARGE_SAMPLE)
@@ -62,6 +64,7 @@ class TestDistributions(unittest.TestCase):
         self.assertAlmostEqual(np.var(samples), expected_variance, delta=0.1)
 
     def test_binomial_distribution_properties(self):
+        StochasticVariable.delete_all_instances()
         n = 20
         p = 0.7
         dist = BinomialDistribution(n=n, p=p)
@@ -72,6 +75,7 @@ class TestDistributions(unittest.TestCase):
         self.assertAlmostEqual(np.var(samples), expected_variance, delta=0.1)
 
     def test_poisson_distribution_properties(self):
+        StochasticVariable.delete_all_instances()
         mu = 4
         dist = PoissonDistribution(mu=mu)
         samples = dist.sample(size=LARGE_SAMPLE)
@@ -81,6 +85,7 @@ class TestDistributions(unittest.TestCase):
         self.assertAlmostEqual(np.var(samples), expected_variance, delta=0.05)
 
     def test_beta_distribution_properties(self):
+        StochasticVariable.delete_all_instances()
         a = 2
         b = 3
         dist = BetaDistribution(a=a, b=b)
@@ -91,6 +96,7 @@ class TestDistributions(unittest.TestCase):
         self.assertAlmostEqual(np.var(samples), expected_variance, delta=0.01)
 
     def test_gamma_distribution_properties(self):
+        StochasticVariable.delete_all_instances()
         shape = 5
         scale = 2
         dist = GammaDistribution(shape=shape, scale=scale)
@@ -103,6 +109,7 @@ class TestDistributions(unittest.TestCase):
 
 
     def test_dirichlet_distribution(self):
+        StochasticVariable.delete_all_instances()
         alpha = [2, 3, 5]
         dist = DirichletDistribution(alpha=alpha)
         samples = dist.sample(size=LARGE_SAMPLE)
@@ -113,6 +120,7 @@ class TestDistributions(unittest.TestCase):
 class TestTransformations(unittest.TestCase):
 
     def test_trigonometric_functions(self):
+        StochasticVariable.delete_all_instances()
         x = StochasticVariable(NormalDistribution(mu=0, sigma=np.pi / 4), name='X')
         sin_x = sin(x)
         cos_x = cos(x)
@@ -126,6 +134,7 @@ class TestTransformations(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(tan_samples)))
 
     def test_inverse_trigonometric_functions(self):
+        StochasticVariable.delete_all_instances()
         x = StochasticVariable(ContinuousUniformDistribution(a=-1, b=1), name='X')
         arcsin_x = arcsin(x)
         arccos_x = arccos(x)
@@ -139,6 +148,7 @@ class TestTransformations(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(arctan_samples)))
 
     def test_hyperbolic_functions(self):
+        StochasticVariable.delete_all_instances()
         x = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X')
         sinh_x = sinh(x)
         cosh_x = cosh(x)
@@ -152,6 +162,7 @@ class TestTransformations(unittest.TestCase):
         self.assertTrue(np.all(np.abs(tanh_samples) <= 1))
 
     def test_logarithmic_functions(self):
+        StochasticVariable.delete_all_instances()
         x = StochasticVariable(ExponentialDistribution(lambd=1), name='X')
         log_x = log(x)
         log_samples = log_x.sample(size=LARGE_SAMPLE)
@@ -159,6 +170,7 @@ class TestTransformations(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(log_samples)))
 
     def test_power_functions(self):
+        StochasticVariable.delete_all_instances()
         x = StochasticVariable(ContinuousUniformDistribution(a=0, b=10), name='X')
         sqrt_x = sqrt(x)
         square_x = square(x)
@@ -173,6 +185,7 @@ class TestTransformations(unittest.TestCase):
 class TestDependencyStructures(unittest.TestCase):
 
     def test_markov_chain(self):
+        StochasticVariable.delete_all_instances()
         # Define a simple Markov chain X -> Y -> Z
         X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X')
         Y = StochasticVariable(NormalDistribution(mu=X, sigma=1), name='Y')
@@ -189,6 +202,7 @@ class TestDependencyStructures(unittest.TestCase):
         self.assertAlmostEqual(np.mean(Z_samples - Y_samples), 0, delta=0.05)
 
     def test_bayesian_network(self):
+        StochasticVariable.delete_all_instances()
         # Define a simple Bayesian network A -> C <- B
         A = StochasticVariable(BernoulliDistribution(p=0.6), name='A')
         B = StochasticVariable(BernoulliDistribution(p=0.7), name='B')
@@ -214,6 +228,7 @@ class TestStatisticalProperties(unittest.TestCase):
 
 
     def test_sum_of_variables(self):
+        StochasticVariable.delete_all_instances()
         import numpy as np
         from functools import reduce
         import operator
@@ -277,6 +292,7 @@ class TestStatisticalProperties(unittest.TestCase):
 
 
     def test_covariance(self):
+        StochasticVariable.delete_all_instances()
         # Test covariance between two dependent variables
         X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X')
         Y = 2 * X + StochasticVariable(NormalDistribution(mu=0, sigma=1), name='Epsilon')
@@ -288,6 +304,7 @@ class TestStatisticalProperties(unittest.TestCase):
         self.assertAlmostEqual(covariance, expected_covariance, delta=0.1)
 
     def test_correlation_coefficient(self):
+        StochasticVariable.delete_all_instances()
         # Test correlation coefficient between two variables
         X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X')
         Y = -3 * X + StochasticVariable(NormalDistribution(mu=0, sigma=1), name='Epsilon')
@@ -301,6 +318,7 @@ class TestStatisticalProperties(unittest.TestCase):
 class TestAdvancedUsage(unittest.TestCase):
 
     def test_joint_distribution_sampling(self):
+        StochasticVariable.delete_all_instances()
         # Test sampling from joint distribution of dependent variables
         X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X')
         Y = X + StochasticVariable(NormalDistribution(mu=0, sigma=1), name='Epsilon')
@@ -313,6 +331,7 @@ class TestAdvancedUsage(unittest.TestCase):
         self.assertTrue(np.allclose(samples[:, 2], samples[:, 0] - samples[:, 1]))
 
     def test_sampling_with_constraints(self):
+        StochasticVariable.delete_all_instances()
         # Test sampling with constraints using rejection sampling
         X = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X')
         condition = lambda x: x > 0  # Only positive samples
@@ -326,6 +345,7 @@ class TestAdvancedUsage(unittest.TestCase):
         self.assertTrue(np.all(samples > 0))
 
     def test_empirical_cdf(self):
+        StochasticVariable.delete_all_instances()
         # Test empirical cumulative distribution function
         X = StochasticVariable(ExponentialDistribution(lambd=1), name='X')
         samples = X.sample(size=LARGE_SAMPLE)
@@ -341,6 +361,7 @@ class TestAdvancedUsage(unittest.TestCase):
 class TestMonteCarloSimulation(unittest.TestCase):
 
     def test_option_pricing(self):
+        StochasticVariable.delete_all_instances()
         # Use Monte Carlo simulation to price a European call option
         S0 = 100  # Initial stock price
         K = 105   # Strike price
@@ -365,6 +386,7 @@ class TestMonteCarloSimulation(unittest.TestCase):
         self.assertAlmostEqual(estimated_price, bs_price, delta=0.1)
 
     def test_integral_estimation(self):
+        StochasticVariable.delete_all_instances()
         # Estimate the value of an integral using Monte Carlo simulation
         # Integral of sin(x) from 0 to pi
         def model(x):
@@ -377,6 +399,7 @@ class TestMonteCarloSimulation(unittest.TestCase):
         self.assertAlmostEqual(estimated_integral, actual_integral, delta=0.01)
 
     def test_multidimensional_integration(self):
+        StochasticVariable.delete_all_instances()
         # Estimate the volume of a 4-dimensional unit sphere
         def model(x1, x2, x3, x4):
             return (x1 ** 2 + x2 ** 2 + x3 ** 2 + x4 ** 2) <= 1
@@ -393,6 +416,7 @@ class TestMonteCarloSimulation(unittest.TestCase):
 class TestEdgeCases(unittest.TestCase):
 
     def test_extreme_parameter_values(self):
+        StochasticVariable.delete_all_instances()
         # Test distributions with extreme parameter values
         dist = NormalDistribution(mu=0, sigma=1e-10)
         samples = dist.sample(size=LARGE_SAMPLE)
@@ -400,12 +424,14 @@ class TestEdgeCases(unittest.TestCase):
         self.assertTrue(np.allclose(samples, 0, atol=1e-9))
 
     def test_zero_variance(self):
+        StochasticVariable.delete_all_instances()
         # Test behavior when variance is zero
         dist = NormalDistribution(mu=5, sigma=0)
         samples = dist.sample(size=LARGE_SAMPLE)
         self.assertTrue(np.all(samples == 5))
 
     def test_large_numbers(self):
+        StochasticVariable.delete_all_instances()
         # Test with very large numbers
         lambd = 1e-5
         dist = ExponentialDistribution(lambd=lambd)
@@ -415,6 +441,7 @@ class TestEdgeCases(unittest.TestCase):
         self.assertAlmostEqual(np.mean(samples), expected_mean, delta=expected_mean * 0.05)
 
     def test_small_probabilities(self):
+        StochasticVariable.delete_all_instances()
         # Test binomial distribution with small probability
         n = 1000
         p = 1e-5
@@ -426,6 +453,7 @@ class TestEdgeCases(unittest.TestCase):
 class TestGoodnessOfFit(unittest.TestCase):
 
     def test_lognormal_distribution_fit(self):
+        StochasticVariable.delete_all_instances()
         # Generate data from a lognormal distribution
         mu = 0
         sigma = 1
@@ -439,6 +467,7 @@ class TestGoodnessOfFit(unittest.TestCase):
 class TestDependencyGraph(unittest.TestCase):
 
     def test_plot_dependency_graph_with_vectors(self):
+        StochasticVariable.delete_all_instances()
         # Create stochastic variables and vectors
         X1 = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X1')
         X2 = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X2')
