@@ -4,6 +4,55 @@
 from .core import StochasticVariable, apply
 import numpy as np
 
+__all__ = [
+    # Exponential and logarithmic functions
+    "exp",
+    "expm1",
+    "log",
+    "log10",
+    "log2",
+    "log1p",
+
+    # Power functions
+    "sqrt",
+    "square",
+    "power",
+    "cbrt",
+    "reciprocal",
+
+    # Trigonometric functions
+    "sin",
+    "cos",
+    "tan",
+    "arcsin",
+    "arccos",
+    "arctan",
+    "arctan2",
+    "hypot",
+
+    # Hyperbolic functions
+    "sinh",
+    "cosh",
+    "tanh",
+    "arcsinh",
+    "arccosh",
+    "arctanh",
+
+    # Round and clipping functions
+    "round_",
+    "floor",
+    "ceil",
+    "trunc",
+    "clip",
+
+    # Sign and comparison functions
+    "abs_",
+    "sign",
+    "min_",
+    "max_"
+]
+
+
 # Exponential and logarithmic functions
 def exp(X):
     return apply(np.exp, X, name=f"exp({X.name if isinstance(X, StochasticVariable) else X})")

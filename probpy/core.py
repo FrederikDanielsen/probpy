@@ -1,5 +1,7 @@
 # core.py
 
+__all__ = ["StochasticVariable", "StochasticVector", "apply", "probability"]
+
 # IMPORTS
 import numpy as np
 import operator
@@ -20,7 +22,6 @@ class StochasticVariable:
         while cls.instances:
             instance = cls.instances.pop() 
             del instance
-
         
     def __init__(
         self,
@@ -43,6 +44,11 @@ class StochasticVariable:
             - distribution_type: 'continuous', 'discrete', or 'mixed'.
             - value: If the variable represents a constant, this is its value.
         """
+        
+        if distribution is None:
+            from .distributions import ContinuousUniformDistribution
+            distribution = ContinuousUniformDistribution(0,1)
+        
         if (
             value is not None
             and (distribution is not None or func is not None or dependencies)
@@ -51,13 +57,14 @@ class StochasticVariable:
                 "A StochasticVariable cannot have a value alongside distribution, function, or dependencies."
             )
 
+
         self.distribution = distribution
         self.func = func
         self.value = value  # Store the constant value if applicable
         self.constant = constant  # True if self is a Dummy StochasticVariable, that is, a constant number
 
         for instance in StochasticVariable.instances:
-            if instance.name == name:
+            if instance.name == name and not instance.constant:
                 raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
 
         self.name = name or (str(value) if value is not None else f"SV_{id(self)}")
@@ -301,8 +308,14 @@ class StochasticVariable:
         
         return float(lower_bound), float(upper_bound)
 
+    def print(self):
+        print(self)
+
+    def __str__(self):
+        return self.name
 
     # Overloaded arithmetic operators
+
     def __add__(self, other):
         if isinstance(other, StochasticVariable):
             return apply(operator.add, self, other, name=f"({self.name} + {other.name})")
@@ -364,10 +377,17 @@ class StochasticVector:
         - variables: StochasticVariable instances to include in the vector.
         - name (str): Name of the stochastic vector (default: None).
         """
-        if not all(isinstance(var, StochasticVariable) for var in variables):
-            raise ValueError("All inputs must be instances of StochasticVariable.")
 
-        self.variables = variables
+        self.variables = []
+
+        if len(variables) == 1 and isinstance(variables[0], list): 
+            variables = list(variables)[0]
+        else:
+            variables = list(variables)
+
+        for var in variables:
+            self.append(var)
+
         self.name = name or "StochasticVector"
 
     def sample(self, size=1, context=None):
@@ -404,6 +424,59 @@ class StochasticVector:
             dependencies.add(var)
         return dependencies
 
+    def append(self, element):
+        if isinstance(element, float) or isinstance(element, int):
+            self.variable.append(StochasticVariable(value=element, constant=True, name=f"_ProbPy_Constant({element})"))
+        elif isinstance(element, StochasticVariable):
+             self.variables.append(element)
+        else:
+            raise ValueError(f"Element must be of type 'int', 'float', or 'StochasticVariable'. Got '{type(element)}'") 
+        
+    def insert(self, index, element):
+        if isinstance(element, float) or isinstance(element, int):
+            self.variable.insert(index, StochasticVariable(value=element, constant=True, name=f"_ProbPy_Constant({element})"))
+        elif isinstance(element, StochasticVariable):
+             self.variables.insert(index, element)
+        else:
+            raise ValueError(f"Element must be of type 'int', 'float', or 'StochasticVariable'. Got '{type(element)}'")   
+
+    def pop(self, identifier=None):
+        if identifier is None:
+            identifier = len(self) - 1
+        if isinstance(identifier, str):
+            for var in self.variables:
+                if var.name == identifier:
+                    self.varaibles.remove(var)
+                    return var
+            raise ValueError(f"No variable in vector with name '{identifier}'!")           
+        elif isinstance(identifier, int):
+            return self.variables.pop(identifier)
+        else:
+            raise ValueError(f"Identifier must be of type 'int' to indicate position in vector or 'str' to indicate the name of the element. Got {type(identifier)}!")
+
+    def remove(self, identifier):
+        if isinstance(identifier, str):
+            for var in self.variables:
+                if var.name == identifier:
+                    self.variables.remove(var)
+                    return
+            raise ValueError(f"No variable in vector with name '{identifier}'!")           
+        elif isinstance(identifier, int):
+            self.variables.pop(identifier)
+        elif isinstance(identifier, StochasticVariable):
+            if identifier in self.variables:
+                self.variables.remove(identifier)
+            else:
+                raise ValueError(f"No variable in vector with name '{identifier.name}'!")
+        else:
+            raise ValueError(f"Identifier must be of type 'int' to indicate position in vector or 'str' to indicate the name of the element. Got {type(identifier)}!")
+
+    def print(self):
+        print(self)
+
+    def length(self):
+        return len(self)
+    
     def norm(self, p=2):
         """
         Computes the p-norm of the stochastic vector.
@@ -419,9 +492,8 @@ class StochasticVector:
             *self.variables,
             name=f"{self.name}_norm_{p}"
         )
-
-    # Dot Product
-    def dot(self, other):
+  
+    def dot(self, other):  # Dot Product
         """
         Computes the dot product with another stochastic vector.
 
@@ -445,8 +517,7 @@ class StochasticVector:
             name=f"dot({self.name}, {other.name})"
         )
 
-    # Cross Product (for 3D vectors only)
-    def cross(self, other):
+    def cross(self, other): # Cross Product (for 3D vectors only)
         """
         Computes the cross product with another 3D stochastic vector.
 
@@ -484,6 +555,46 @@ class StochasticVector:
         )
 
         return StochasticVector(cross_x, cross_y, cross_z, name=f"cross({self.name}, {other.name})")
+
+    def __str__(self):
+        n = len(self)
+        string = ""
+        string += "["
+        for i, element in enumerate(self.variables):
+            if element.constant:
+                string += element.value
+            else:
+                string += element.name
+            if i < n-1:
+                string += ", "
+        string += "]"
+        return string
+
+    def __getitem__(self, identifier):
+        if isinstance(identifier, str):
+            for var in self.variables:
+                if var.name == identifier:
+                    return var
+            raise ValueError(f"No variable in vector with name '{identifier}'!")
+        elif isinstance(identifier, int):
+            return self.variables[identifier]
+        else:
+            raise ValueError(f"Identifier must be of type 'int' to indicate position in vector or 'str' to indicate the name of the element. Got {type(identifier)}!")
+
+    def __setitem__(self, index, element):
+        if isinstance(index, int):
+            if isinstance(element, float) or isinstance(element, int):
+                self.variable[index] = (StochasticVariable(value=element, constant=True, name=f"_ProbPy_Constant({element})"))
+            elif isinstance(element, StochasticVariable):
+                self.variables[index] = element
+            else:
+                raise ValueError(f"Element must be of type int, float, or StochasticVariable. Got '{type(element)}'") 
+        else:
+            raise ValueError(f"Index must be of type 'int' to indicate position in vector. Got {type(index)}!")            
+
+    def __len__(self):
+        return len(self.variables) 
+
 
     # Overloaded Operators for Element-wise Operations
     def __add__(self, other):
@@ -551,13 +662,28 @@ def delete(object):
         for variable in object.variables:
             delete(variable)
         del object
+        return
+    elif isinstance(object, str):
+        for element in StochasticVariable.instances:
+            if element.name == object:
+                StochasticVariable.instances.remove(element)
+                del element
+                return
+        raise ValueError(f'No variable with name "{object}!"')
+        
 
 
 # Core functions
 
 def apply(func, *args, name=None):
+    dependencies = []
+    for arg in args:
+        if isinstance(arg, StochasticVariable):
+            dependencies.append(arg)
+        else:
+            dependencies.append(StochasticVariable(value=arg, constant=True, name=f"_ProbPy_Constant({arg})"))
     dependencies = [
-        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg, constant=True, name=f"{arg}")
+        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg, constant=True, name=f"_Constant({arg})")
         for arg in args
     ]
 
