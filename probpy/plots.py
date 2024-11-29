@@ -89,22 +89,19 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
         graph.add_node(variable.name)
 
         if isinstance(variable, StochasticVector):
-            # For StochasticVector, add edges from its components and their dependencies
-            for var in variable.variables:
-                deps = var.get_all_dependencies()
-                for dep in deps:
-                    if not dep.constant and len(dep.dependencies) < depth:
-                        graph.add_edge(dep.name, variable.name)
-                        add_to_graph(dep, visited)
+            # Add components and their dependencies
+            for var in variable.variables:  # Assume 'variables' contains X1, X2, etc.
+                graph.add_edge(var.name, variable.name)  # Edge from component to vector
+                add_to_graph(var, visited)
         elif isinstance(variable, StochasticVariable):
-            # Add edges for dependencies
-            deps = variable.get_all_dependencies()
-            for dep in deps:
-                if not dep.constant and len(dep.dependencies) < depth:
+            # Add dependencies for StochasticVariable
+            for dep in variable.get_all_dependencies():
+                if not dep.constant and len(dep.get_all_dependencies()) < depth:
                     graph.add_edge(dep.name, variable.name)
                     add_to_graph(dep, visited)
         else:
             raise ValueError(f"Unsupported variable type: {type(variable)}")
+
 
     visited = set()
     for var in variables:

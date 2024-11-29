@@ -34,16 +34,10 @@ MEDIUM_SAMPLE = 1000
 LARGE_SAMPLE = 100000
 
 
-X = StochasticVariable(NormalDistribution(5, 2), name="X")
-Y = StochasticVariable(ExponentialDistribution(2), name="Y")
-Z = X +2 + 3 + Y 
-Z.name = "Z"
 
-print("X:", X.dependencies)
-print("Y:", Y.dependencies)
-print("Z:", [x.name for x in Z.dependencies])
+A = StochasticVariable(name="A")
 
-plot_dependency_graph(Z)
+
 
 
 exit()

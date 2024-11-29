@@ -30,8 +30,7 @@ class StochasticVariable:
         func=None,
         name=None,
         distribution_type=None,
-        value=None,
-        constant=False
+        value=None
     ):
         """
         Represents a stochastic variable.
@@ -45,54 +44,82 @@ class StochasticVariable:
             - value: If the variable represents a constant, this is its value.
         """
         
-        if distribution is None:
+        # Input check
+
+        if dependencies is None: dependencies = []
+
+        if not any([value, distribution, func]):
             from .distributions import ContinuousUniformDistribution
-            distribution = ContinuousUniformDistribution(0,1)
-        
-        if (
-            value is not None
-            and (distribution is not None or func is not None or dependencies)
-        ):
+            distribution = ContinuousUniformDistribution(0, 1)
+
+        if len([0 for x in [value, distribution, func] if x]) > 1:
+            raise ValueError("A StochasticVariable can only have one of the following: a function, a distribution, or a constant value!")
+
+        if value:
+            name = str(value)
+            self.distribution_type = "discrete"
+            if dependencies:
+                raise ValueError("A constant StochasticVariable can't have dependencies!")                
+            if any([distribution, func]):
+                raise ValueError("A StochasticVariable cannot have a value alongside distribution, function, or dependencies.")
+
+        if distribution and distribution_type and distribution_type != distribution.distribution_type:
             raise ValueError(
-                "A StochasticVariable cannot have a value alongside distribution, function, or dependencies."
+                f"Distribution type mismatch: Type of given distribution '{distribution.distribution_type}' "
+                f"doesn't match specified distribution type '{distribution_type}'!"
             )
+
+        if any(instance.name == name and not instance.constant for instance in StochasticVariable.instances):
+            raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
+
+        if func:
+            if not dependencies:
+                raise ValueError("StochasticVaraible with a function must have dependencies!")
+
+            types = set(dep.distribution_type for dep in dependencies)
+            if len(types) == 1:  # All dependencies have the same type 
+                distribution_type = types.pop()
+            else:  # Mixed types among dependencies     
+                distribution_type = "mixed"
+
+        if distribution:
+            distribution_type = distribution.distribution_type
+            dependencies.extend(distribution.get_dependencies())
 
 
         self.distribution = distribution
+        self.distribution_type = distribution_type
         self.func = func
-        self.value = value  # Store the constant value if applicable
-        self.constant = constant  # True if self is a Dummy StochasticVariable, that is, a constant number
-
-        for instance in StochasticVariable.instances:
-            if instance.name == name and not instance.constant:
-                raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
-
-        self.name = name or (str(value) if value is not None else f"SV_{id(self)}")
-        StochasticVariable.instances.append(self)
-
-        if dependencies is None:
-            dependencies = []
-
-        if distribution is not None:
-            dependencies.extend(distribution.get_dependencies())
-            self.distribution_type = distribution.distribution_type
-        else:
-            self.distribution_type = distribution_type  # User-specified type, if applicable
-
+        self.value = value
+        self.name = name or f"SV_{id(self)}"
         self.dependencies = dependencies
 
-        # Validate for circular dependencies
         self._check_circular_dependency()
 
-        # Determine the type for constants
-        if self.value is not None:
-            self.distribution_type = (
-                "discrete" if isinstance(self.value, int) else "continuous"
-            )
+        StochasticVariable.instances.append(self)
 
-        # Automatically determine distribution type if not specified
-        if self.distribution_type is None:
-            self.distribution_type = self._determine_distribution_type()
+
+    @property
+    def in_use(self):
+        for var in StochasticVariable.instances:
+            if self in var.dependencies:
+                return True
+        return False
+
+    @property
+    def constant(self):
+        return self.value is not None
+
+    def set_distribution(self, dist):
+        from .distributions import Distribution
+        if not isinstance(dist, Distribution):
+            raise ValueError("Input must be of type Distribution!")
+        if self.in_use:
+            raise Exception("Cannot set distribution of variable that is in use!")
+        if any([self.value, self.func]):
+            raise Exception("Cannot set distribtuion of a variable with a function or constant value!")
+        self.distribution = dist
+        self.distribution_type = dist.distribution_type
 
     def _determine_distribution_type(self):
         types = set(dep.distribution_type for dep in self.dependencies)
@@ -426,7 +453,7 @@ class StochasticVector:
 
     def append(self, element):
         if isinstance(element, float) or isinstance(element, int):
-            self.variable.append(StochasticVariable(value=element, constant=True, name=f"_ProbPy_Constant({element})"))
+            self.variable.append(StochasticVariable(value=element, name=f"_ProbPy_Constant({element})"))
         elif isinstance(element, StochasticVariable):
              self.variables.append(element)
         else:
@@ -434,7 +461,7 @@ class StochasticVector:
         
     def insert(self, index, element):
         if isinstance(element, float) or isinstance(element, int):
-            self.variable.insert(index, StochasticVariable(value=element, constant=True, name=f"_ProbPy_Constant({element})"))
+            self.variable.insert(index, StochasticVariable(value=element, name=f"_ProbPy_Constant({element})"))
         elif isinstance(element, StochasticVariable):
              self.variables.insert(index, element)
         else:
@@ -584,7 +611,7 @@ class StochasticVector:
     def __setitem__(self, index, element):
         if isinstance(index, int):
             if isinstance(element, float) or isinstance(element, int):
-                self.variable[index] = (StochasticVariable(value=element, constant=True, name=f"_ProbPy_Constant({element})"))
+                self.variable[index] = (StochasticVariable(value=element, name=f"_ProbPy_Constant({element})"))
             elif isinstance(element, StochasticVariable):
                 self.variables[index] = element
             else:
@@ -622,19 +649,41 @@ class StochasticVector:
         Returns:
             - StochasticVector: The resulting stochastic vector.
         """
+
+        combined_vars = []
+
         if isinstance(other, StochasticVector):
             if len(self.variables) != len(other.variables):
                 raise ValueError(f"Both vectors must have the same number of components for {op_name}.")
 
-            combined_vars = [
-                apply(operator_func, v1, v2, name=f"{v1.name}_{op_name}_{v2.name}")
-                for v1, v2 in zip(self.variables, other.variables)
-            ]
+            
+            unique_variables = []
+            
+            for var, other_var in zip(self.variables, other.variables):
+                # Check if a variable with the same name already exists
+                existing_var = next((unique_var for unique_var in unique_variables if unique_var.name == f"{var.name}_{op_name}_{other_var.name}"), None)
+                
+                if existing_var:
+                    combined_vars.append(existing_var)
+                else:
+                    new_var = apply(operator_func, var, other_var, name=f"{var.name}_{op_name}_{other_var.name}")
+                    unique_variables.append(new_var)
+                    combined_vars.append(new_var)
+                    
+
         elif isinstance(other, StochasticVariable) or np.isscalar(other):
-            combined_vars = [
-                apply(operator_func, var, other, name=f"{var.name}_{op_name}_{other}")
-                for var in self.variables
-            ]
+            unique_variables = []
+            
+            for var in self.variables:
+                # Check if a variable with the same name already exists
+                existing_var = next((unique_var for unique_var in unique_variables if unique_var.name == f"{var.name}_{op_name}_{other}"), None)
+                
+                if existing_var:
+                    combined_vars.append(existing_var)
+                else:
+                    new_var = apply(operator_func, var, other, name=f"{var.name}_{op_name}_{other}")
+                    unique_variables.append(new_var)
+                    combined_vars.append(new_var)
         else:
             raise ValueError(f"Unsupported operand type for {op_name} operation.")
 
@@ -681,9 +730,9 @@ def apply(func, *args, name=None):
         if isinstance(arg, StochasticVariable):
             dependencies.append(arg)
         else:
-            dependencies.append(StochasticVariable(value=arg, constant=True, name=f"_ProbPy_Constant({arg})"))
+            dependencies.append(StochasticVariable(value=arg, name=f"_ProbPy_Constant({arg})"))
     dependencies = [
-        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg, constant=True, name=f"_Constant({arg})")
+        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg, name=f"_Constant({arg})")
         for arg in args
     ]
 

@@ -472,13 +472,15 @@ class TestDependencyGraph(unittest.TestCase):
         X1 = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X1')
         X2 = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='X2')
         V1 = StochasticVector(X1, X2, name='V1')
+
         Y = X1 + X2
         Y.name = 'Y'
         V2 = V1 * 2
         V2.name = 'V2'
         # Plot the dependency graph
+
         try:
-            plot_dependency_graph([V1, V2, Y], title="Dependency Graph with Vectors")
+            plot_dependency_graph(V1, V2, Y, title="Dependency Graph with Vectors", depth=1)
             success = True
         except Exception:
             success = False

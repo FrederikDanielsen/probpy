@@ -22,5 +22,7 @@ __all__ = [
 # - Goodness of fit
 # - Conditional distributions (X.given(Y=y))
 # - Multivariate distributions
-# - Dont include constants in graphs
 # - Stochastic matrices
+# - (DONE) Dont include constants in graphs
+# - (DONE) Add distribution of instantiating empty stochastiv variable.
+# - (DONE) As default be Contiuously distributed on the unit interval
