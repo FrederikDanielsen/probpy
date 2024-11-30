@@ -9,6 +9,8 @@ from scipy.stats import gaussian_kde
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 from scipy.stats import t, chi2, distributions
 
+
+
 # Core classes
 
 class StochasticVariable:
@@ -669,7 +671,7 @@ class StochasticVector:
                     new_var = apply(operator_func, var, other_var, name=f"{var.name}_{op_name}_{other_var.name}")
                     unique_variables.append(new_var)
                     combined_vars.append(new_var)
-                    
+
 
         elif isinstance(other, StochasticVariable) or np.isscalar(other):
             unique_variables = []
@@ -693,6 +695,9 @@ class StochasticVector:
     def __repr__(self):
         return f"StochasticVector(name={self.name}, variables={[var.name for var in self.variables]})"
 
+
+
+# Core functions
 
 def delete(object):
     """
@@ -720,9 +725,6 @@ def delete(object):
                 return
         raise ValueError(f'No variable with name "{object}!"')
         
-
-
-# Core functions
 
 def apply(func, *args, name=None):
     dependencies = []
@@ -789,6 +791,7 @@ def probability(condition, *args, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=N
     prob = np.mean(condition_results)
 
     return prob
+
 
 def set_random_seed(seed):
     """

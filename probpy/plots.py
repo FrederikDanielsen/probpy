@@ -1,5 +1,7 @@
 #plots.py
 
+__all__ = ["plot_distribution", "plot_dependency_graph"]
+
 # IMPORTS
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,8 +10,6 @@ from scipy.stats import gaussian_kde
 from .constants import DEFAULT_PLOTTING_SAMPLE_SIZE
 from .core import StochasticVariable, StochasticVector
 
-
-__all__ = ["plot_distribution", "plot_dependency_graph"]
 
 def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, bins=30, density=True, title=None):
     """

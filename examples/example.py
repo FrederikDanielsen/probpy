@@ -35,13 +35,6 @@ LARGE_SAMPLE = 100000
 
 
 
-A = StochasticVariable(name="A")
-
-
-
-
-exit()
-
 print("Section 1: Basic Distributions")
 
 # Normal Distribution

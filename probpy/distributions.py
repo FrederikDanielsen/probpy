@@ -7,6 +7,7 @@ from .core import StochasticVariable
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 from abc import ABC, abstractmethod
 from scipy.stats import t
+from scipy.integrate import quad
 
 
 # Base abstract class for all distributions
@@ -167,7 +168,7 @@ class ParametricDistribution(Distribution):
             else:
                 resolved_params[key] = value
         return resolved_params
-    
+
 
 # Class for standard distributions, such as those from SciPy
 class StandardDistribution(ParametricDistribution):
@@ -267,14 +268,42 @@ class CustomDistribution(ParametricDistribution):
         resolved_params = self._resolve_params(context=context)
         return self.func(x, **resolved_params)
 
-    def cdf(self, x, context=None):
-        # Numerical integration can be used for continuous distributions
-        raise NotImplementedError("CDF method for CustomDistribution needs to be implemented.")
+    def cdf(self, x):
+        """
+        Compute the cumulative distribution function (CDF) at x.
 
-    # Inherit empirical methods from Distribution or override if needed
+        Parameters:
+            - x (float): The value at which to evaluate the CDF.
+
+        Returns:
+            - CDF value at x.
+        """
+        if self.distribution_type == "continuous":
+            a, b = self.domain  # Unpack the interval
+            if x < a:
+                return 0  # Below the domain
+            elif x > b:
+                return 1  # Above the domain
+            else:
+                # Integrate the PDF from a to x
+                result, _ = quad(self.func, a, x)
+                return result
+
+        elif self.distribution_type == "discrete":
+            if not isinstance(self.domain, list):
+                raise ValueError("Domain must be a list for discrete distributions.")
+            
+            # Sum the PMF for values <= x
+            cumulative_sum = sum(self.func(xi) for xi in self.domain if xi <= x)
+            return cumulative_sum
+
+        else:
+            raise ValueError("Invalid distribution type. Must be 'continuous' or 'discrete'.")
+
+    # Inherit empirical methods from Distribution class
 
 
-
+# Class for creating mixture distributions
 class MixtureDistribution(Distribution):
     def __init__(self, components, weights):
         """
