@@ -33,8 +33,19 @@ SMALL_SAMPLE = 100
 MEDIUM_SAMPLE = 1000
 LARGE_SAMPLE = 100000
 
+A = StochasticVariable(NormalDistribution(0,1))
+
+from probpy.goodness_of_fit import kolmogorov_smirnov_test, chi_square_test
+
+kolmogorov_smirnov_test(NormalDistribution(0,1), A, summary=True)
+chi_square_test(NormalDistribution(0,1), A, summary=True)
 
 
+
+
+
+
+exit()
 print("Section 1: Basic Distributions")
 
 # Normal Distribution
@@ -167,7 +178,7 @@ expected_samples = base_samples + 5
 assert np.allclose(dependent_samples, expected_samples), "Dependency not maintained!"
 
 # Plot Dependency Graph
-plot_dependency_graph([Dependent], title="Dependency Graph Example")
+plot_dependency_graph(Dependent, title="Dependency Graph Example")
 
 # ---------------------------
 # Section 6: Monte Carlo Simulations
@@ -349,6 +360,8 @@ plt.show()
 # Section 16: Option Pricing with Monte Carlo Simulation
 # ---------------------------
 
+StochasticVariable.delete_all_instances()
+
 print("\nSection 16: Option Pricing with Monte Carlo Simulation")
 
 # European Call Option Pricing
@@ -361,6 +374,7 @@ sigma = 0.2  # Volatility
 def option_payoff(Z_samples):
     ST = S0 * np.exp((r - 0.5 * sigma ** 2) * T + sigma * np.sqrt(T) * Z_samples)
     return np.exp(-r * T) * np.maximum(ST - K, 0)
+
 
 Z = StochasticVariable(NormalDistribution(mu=0, sigma=1), name='Z')
 results = monte_carlo_simulate(option_payoff, [Z], trials=LARGE_SAMPLE)
