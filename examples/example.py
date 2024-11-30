@@ -33,19 +33,6 @@ SMALL_SAMPLE = 100
 MEDIUM_SAMPLE = 1000
 LARGE_SAMPLE = 100000
 
-A = StochasticVariable(NormalDistribution(0,1))
-
-from probpy.goodness_of_fit import kolmogorov_smirnov_test, chi_square_test
-
-kolmogorov_smirnov_test(NormalDistribution(0,1), A, summary=True)
-chi_square_test(NormalDistribution(0,1), A, summary=True)
-
-
-
-
-
-
-exit()
 print("Section 1: Basic Distributions")
 
 # Normal Distribution

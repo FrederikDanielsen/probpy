@@ -7,7 +7,8 @@ from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 from scipy.stats import kstest, chisquare
 import numpy as np
 
-def kolmogorov_smirnov_test(subject, X, summary=False, alpha=0.05):
+
+def kolmogorov_smirnov_test(subject, X, summary=True, alpha=0.05):
     """
     Description: Performs a Komogorov-Smirnov goodness of fit test on data or a StochasticVariable.
 
@@ -50,7 +51,7 @@ def kolmogorov_smirnov_test(subject, X, summary=False, alpha=0.05):
     return ks_stat, p_value
 
 
-def chi_square_test(subject, X, summary=False, alpha=0.05):
+def chi_square_test(subject, X, summary=True, alpha=0.05):
     """
     Description: Performs a Chi-square goodness of fit test on data or a StochasticVariable.
 

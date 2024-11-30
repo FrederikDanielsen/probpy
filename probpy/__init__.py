@@ -18,11 +18,16 @@ __all__ = [
 ]
 
 
-# IDEAS FOR IMPROVEMENT
-# - Goodness of fit
-# - Conditional distributions (X.given(Y=y))
-# - Multivariate distributions
-# - Stochastic matrices
-# - (DONE) Dont include constants in graphs
-# - (DONE) Add distribution of instantiating empty stochastiv variable.
-# - (DONE) As default be Contiuously distributed on the unit interval
+# TODO
+
+# 1.  (DONE) Goodness of fit
+# 2.  Conditional distributions (X.given(Y=y))
+# 3.  Multivariate distributions
+# 4.  Stochastic matrices
+# 5.  (DONE) Dont include constants in graphs
+# 6.  (DONE) Add distribution of instantiating empty stochastiv variable.
+# 7.  (DONE) As default be Contiuously distributed on the unit interval
+# 8.  Cleanup: Make the structure of the codebase more rational. Remove that func 
+#     attribute of the StochasticVariable class and replace it by a CustomDistribution
+# 9.  Remove distribution_type attribute from StochasticVariable. Instead draw it
+#     from the added distribution. 8. needs to be implemented first.
