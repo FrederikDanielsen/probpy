@@ -79,7 +79,7 @@ print(X.sample())
 print(X.sample(10))
 ```
 
-**Output:**
+*Output:*
 
     0.417022004702574
     [7.20324493e-01 1.14374817e-04 3.02332573e-01 1.46755891e-01
@@ -98,7 +98,7 @@ Y = StochasticVariable(name="Brightness")
 print(Y)
 ```
 
-**Output:**
+*Output:*
 
     Brightness
     
@@ -115,7 +115,7 @@ Z = StochasticVariable(NormalDistribution(mu=0, sigma=1), name="Z")
 print(Z.sample(10))
 ```
 
-**Output:**
+*Output:*
 
     [-1.01701414  0.63736181 -0.85990661  1.77260763 -1.11036305  0.18121427
       0.56434487 -0.56651023  0.7299756   0.37299379]
@@ -133,7 +133,7 @@ Z.set_distribution(ExponentialDistribution(lambd=2))
 print(Z.sample(10))
 ```
 
-**Output:**
+*Output:*
 
     [1.12502793 0.04443977 0.01991894 0.09306264 1.05245149 0.05176267
      0.27331935 1.58372944 0.38089001 0.5886283 ]
@@ -160,7 +160,7 @@ print(Z)
 print(Z.sample(10))
 ```
 
-**Output:**
+*Output:*
 
     X + Y
     Z
@@ -177,7 +177,7 @@ from probpy.plots import plot_distribution
 plot_distribution(Z)
 ```
 
-**Output:**
+*Output:*
 
 
     
@@ -219,7 +219,7 @@ print("Confidence interval of the variance of Z:", Z.variance_confidence_interva
 print("Confidence interval of Z:", Z.confidence_interval())
 ```
 
-**Output:**
+*Output:*
 
     Summary of Z:
     
@@ -242,7 +242,7 @@ skewness and kurtosis are calculated as the 3rd and 4th moments, respectively. T
 Z.summary()
 ```
 
-**Output:**
+*Output:*
 
     ------------------------------------------------------------
     Summary of X + Y
@@ -270,7 +270,7 @@ Z.summary()
 plot_distribution(Z)
 ```
 
-**Output:**
+*Output:*
 
     ------------------------------------------------------------
     Summary of Z
@@ -303,7 +303,7 @@ plot_distribution(X)
 
 ```
 
-**Output:**
+*Output:*
 
     ------------------------------------------------------------
     Summary of X
@@ -334,7 +334,7 @@ Y.summary()
 plot_distribution(Y)
 ```
 
-**Output:**
+*Output:*
 
     ------------------------------------------------------------
     Summary of Y
@@ -407,7 +407,7 @@ Y.summary()
 plot_distribution(Y)
 ```
 
-**Output:**
+*Output:*
 
     ------------------------------------------------------------
     Summary of exp(X)
@@ -442,7 +442,7 @@ print("P(X > 4) =", probability(lambda x: x > 4, X))
 plot_distribution(X)
 ```
 
-**Output:**
+*Output:*
 
     P(X > 4) = 0.1874
     
@@ -470,7 +470,7 @@ print("Confidence interval for P(X > 4)", P.confidence_interval())
 
 ```
 
-**Output:**
+*Output:*
 
     Confidence interval for P(X > 4) (0.161, 0.21)
     
@@ -495,7 +495,7 @@ P.summary()
 plot_distribution(P)
 ```
 
-**Output:**
+*Output:*
 
     ------------------------------------------------------------
     Summary of P
@@ -518,7 +518,7 @@ plot_distribution(P)
 plot_distribution(X+Y)
 ```
 
-**Output:**
+*Output:*
 
 
     
@@ -566,7 +566,7 @@ print(V2.sample())
 
 ```
 
-**Output:**
+*Output:*
 
     [X, Y, 0.5]
     [1, 2, X]
@@ -584,7 +584,7 @@ print(V1)
 print(V1.sample(2))
 ```
 
-**Output:**
+*Output:*
 
     [X, Y, 0.5, X]
     [[0.9015296413803433, 1.3084037962729504, 0.5, 0.9015296413803433], [0.9692997604357816, -0.5077683246403369, 0.5, 0.9692997604357816]]
@@ -610,7 +610,7 @@ print(V3)
 plot_distribution(V3[1])
 ```
 
-**Output:**
+*Output:*
 
     [cross(V1, V2)_x, cross(V1, V2)_y, cross(V1, V2)_z]
     
@@ -636,7 +636,7 @@ N.summary()
 Z.summary()
 ```
 
-**Output:**
+*Output:*
 
     (V1)_norm_2
     dot(V1, V2)
@@ -690,7 +690,7 @@ print(M @ M.T)
 
 ```
 
-**Output:**
+*Output:*
 
     
     [[X, 0.5],
@@ -721,7 +721,7 @@ plot_distribution(Transformed_V.norm())
 
 ```
 
-**Output:**
+*Output:*
 
     [(X * X) + (0.5 * Y), (Y * X) + ((X + Y) * Y)]
     
@@ -743,7 +743,7 @@ from probpy.plots import plot_dependency_graph
 plot_dependency_graph(M)
 ```
 
-**Output:**
+*Output:*
 
 
     
@@ -765,7 +765,7 @@ One can use the `depth` parameter of the `plot_dependency_graph` function to spe
 plot_dependency_graph(M, depth=2)
 ```
 
-**Output:**
+*Output:*
 
 
     
@@ -806,7 +806,7 @@ kolmogorov_smirnov_test(true_distribution, Z)
 
 ```
 
-**Output:**
+*Output:*
 
     
     --------------------------------------------------------------------
@@ -878,7 +878,7 @@ pi_estimate = 4 * np.mean(results)
 print(pi_estimate)
 ```
 
-**Output:**
+*Output:*
 
     3.1417068
     
@@ -911,7 +911,7 @@ summary = summarize_simulation(results)
 print(f"Estimated integral of sin(x) from {a} to {b}: {integral_estimate:.6f}")
 ```
 
-**Output:**
+*Output:*
 
     Estimated integral of sin(x) from 0 to 3.141592653589793: 2.000621
     
