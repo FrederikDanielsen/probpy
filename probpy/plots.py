@@ -8,7 +8,7 @@ import numpy as np
 import networkx as nx
 from scipy.stats import gaussian_kde
 from .constants import DEFAULT_PLOTTING_SAMPLE_SIZE
-from .core import StochasticVariable, StochasticVector
+from .core import StochasticVariable, StochasticVector, StochasticMatrix
 
 
 def plot_distribution(stochastic_var, num_samples=DEFAULT_PLOTTING_SAMPLE_SIZE, bins=30, density=True, title=None):
@@ -76,7 +76,6 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
     Returns:
         - graph (networkx.DiGraph): The constructed dependency graph.
     """
-    
     variables = vars
     
     # Build the dependency graph
@@ -86,22 +85,28 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
         if variable in visited:
             return
         visited.add(variable)
-        graph.add_node(variable.name)
+        graph.add_node(id(variable), name=variable.name)
 
-        if isinstance(variable, StochasticVector):
-            # Add components and their dependencies
+        if isinstance(variable, StochasticMatrix):
+            for var in variable.matrix.flatten():  # Assume 'variables' contains X1, X2, etc.
+                if not var.distribution_type == 'constant' and len(var.get_all_dependencies()) <= depth:
+                    graph.add_node(id(var), name=var.name)
+                    graph.add_edge(id(var), id(variable))  # Edge from component to vector
+                    add_to_graph(var, visited)
+        elif isinstance(variable, StochasticVector):
             for var in variable.variables:  # Assume 'variables' contains X1, X2, etc.
-                graph.add_edge(var.name, variable.name)  # Edge from component to vector
-                add_to_graph(var, visited)
+                if not var.distribution_type == 'constant' and len(var.get_all_dependencies()) <= depth:
+                    graph.add_node(id(var), name=var.name)
+                    graph.add_edge(id(var), id(variable))  # Edge from component to vector
+                    add_to_graph(var, visited)
         elif isinstance(variable, StochasticVariable):
-            # Add dependencies for StochasticVariable
             for dep in variable.get_all_dependencies():
-                if not dep.constant and len(dep.get_all_dependencies()) < depth:
-                    graph.add_edge(dep.name, variable.name)
+                if not dep.distribution_type == 'constant' and len(dep.get_all_dependencies()) <= depth:
+                    graph.add_node(id(dep), name=dep.name)
+                    graph.add_edge(id(dep), id(variable))
                     add_to_graph(dep, visited)
         else:
             raise ValueError(f"Unsupported variable type: {type(variable)}")
-
 
     visited = set()
     for var in variables:
@@ -112,10 +117,12 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
     try:
         cycles = list(nx.simple_cycles(graph))
         if cycles:
-            # Flatten the list of cycles
             circular_dependencies = set(node for cycle in cycles for node in cycle)
     except nx.NetworkXNoCycle:
         pass
+
+    # Extract labels for visualization
+    labels = {node: data['name'] for node, data in graph.nodes(data=True)}
 
     # Visualize the graph
     plt.figure(figsize=(10, 8))
@@ -127,9 +134,7 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
         if node in circular_dependencies:
             color = "red"
         else:
-            # Differentiate between variables and vectors
-            # Assuming names of vectors are unique and set in the StochasticVector class
-            variable = next((var for var in visited if var.name == node), None)
+            variable = next((var for var in visited if id(var) == node), None)
             if isinstance(variable, StochasticVector):
                 color = "lightgreen"
             else:
@@ -140,6 +145,7 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
         graph,
         pos,
         with_labels=True,
+        labels=labels,  # Use the names as labels
         node_color=node_colors,
         node_size=3000,
         font_size=12,
@@ -164,3 +170,7 @@ def plot_dependency_graph(*vars, title="Dependency Graph", depth=1):
     plt.show()
 
     return graph
+
+
+
+

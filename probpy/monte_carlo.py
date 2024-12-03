@@ -8,7 +8,7 @@ from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE, DEFAULT_PLOTTING_SAMPLE_S
 from scipy.stats import t
 
 
-def monte_carlo_simulate(model, variables, trials=DEFAULT_STATISTICS_SAMPLE_SIZE, seed=None):
+def monte_carlo_simulate(model, variables, num_trials=DEFAULT_STATISTICS_SAMPLE_SIZE, seed=None):
     """
     Performs Monte Carlo simulation.
 
@@ -28,7 +28,7 @@ def monte_carlo_simulate(model, variables, trials=DEFAULT_STATISTICS_SAMPLE_SIZE
     context = {}
 
     # Generate samples for each stochastic variable
-    samples = [var.sample(size=trials, context=context) for var in variables]
+    samples = [var.sample(size=num_trials, context=context) for var in variables]
 
     # Evaluate the model for each set of sampled inputs
     results = model(*samples)
@@ -60,7 +60,7 @@ def summarize_simulation(results, confidence_level=0.95):
     n = len(results)
     sem = std_dev / np.sqrt(n)
     h = sem * t.ppf((1 + confidence_level) / 2., n - 1)
-    confidence_interval = (mean - h, mean + h)
+    confidence_interval = (float(mean - h), float(mean + h))
 
     return {
         "mean": mean,

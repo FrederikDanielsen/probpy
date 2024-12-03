@@ -1,18 +1,25 @@
-
 # ProbPy Documentation
 
-## Overview
+---
 
-The ProbPy library provides a comprehensive framework for probabilistic modeling and simulation, enabling the creation and manipulation of stochastic variables and vectors, application of transformations, dependency management, Monte Carlo simulations, and more.
+ProbPy is a Python library for modeling and manipulating stochastic variables and probability distributions. It provides tools for statistical analysis, transformations, Monte Carlo simulations, and visualizations, making it easier to work with random processes and probabilistic models.
 
-The library is modular, with each component handling specific aspects of probabilistic computations. The main modules include:
+This documentation offers a comprehensive guide on how to effectively utilize the library. It walks you through the essential features and functionalities, showcases practical examples, and illustrates best practices to help you integrate ProbPy seamlessly into your projects.
 
-- **Core Module**: Defines the core classes `StochasticVariable` and `StochasticVector`, which represent random variables and vectors.
-- **Distributions Module**: Provides a variety of probability distributions, both standard and custom, that can be used to define stochastic variables.
-- **Transformations Module**: Offers mathematical functions to transform stochastic variables.
-- **Monte Carlo Module**: Contains functions for performing Monte Carlo simulations.
-- **Plots Module**: Includes functions for visualizing distributions, simulation results, and dependency graphs.
-- **Constants Module**: Defines default values used across the library.
+## Table of Contents
+
+- [Installation](#installation)
+- [Modules Overview](#modules-overview)
+- [Initialization](#initialization)
+- [Defining Stochastic Variables](#defining-stochastic-variables)
+- [Statistical Methods](#statistical-methods)
+- [Transformations](#transformations)
+- [Calculating Probabilities](#calculating-probabilities)
+- [Stochastic Vectors and Matrices](#stochastic-vectors-and-matrices)
+- [Dependency Graphs](#dependency-graphs)
+- [Goodness of Fit Tests](#goodness-of-fit-tests)
+- [Monte Carlo Simulation](#monte-carlo-simulation)
+- [Source Code Reference](#source-code-reference)
 
 ---
 
@@ -26,384 +33,568 @@ cd probpy
 pip install -r requirements.txt
 ```
 
----
+## Modules Overview
 
-## Table of Contents
+ProbPy consists of the following modules:
 
-1. [Core Module](#core-module)
-    - [StochasticVariable Class](#stochasticvariable-class)
-    - [StochasticVector Class](#stochasticvector-class)
-    - [Core Functions](#core-functions)
-2. [Distributions Module](#distributions-module)
-    - [Base Classes](#base-classes)
-    - [Standard Distributions](#standard-distributions)
-    - [CustomDistribution Class](#customdistribution-class)
-3. [Transformations Module](#transformations-module)
-4. [Monte Carlo Module](#monte-carlo-module)
-5. [Plots Module](#plots-module)
-6. [Constants Module](#constants-module)
-7. [Usage Examples](#usage-examples)
-8. [License](#license)
+- **`probpy.core`**: Core functionalities of the library, including classes for stochastic variables, vectors, and matrices.
+- **`probpy.distributions`**: A collection of predefined probability distributions.
+- **`probpy.plots`**: Functions for visualizing distributions and dependencies.
+- **`probpy.transformations`**: Functions used to transform stochastic variables.
+- **`probpy.goodness_of_fit`**: Functions to test whether a stochastic variable follows a certain distribution.
+- **`probpy.monte_carlo`**: Functions to perform Monte Carlo simulations.
 
----
+## Initialization
 
-## Core Module
-
-The core module defines the foundational classes and functions of the library.
-
-### StochasticVariable Class
-
-Represents a stochastic (random) variable.
-
-#### Initialization
+Begin by importing the necessary classes and functions:
 
 ```python
-StochasticVariable(
-    distribution=None,
-    dependencies=None,
-    func=None,
-    name=None,
-    distribution_type=None,
-    value=None,
-)
+from probpy.core import StochasticVariable, set_random_seed
+import numpy as np
 ```
 
-**Parameters**:
-- `distribution`: An instance of a distribution (from the Distributions Module).
-- `dependencies`: A list of other `StochasticVariable` instances this variable depends on.
-- `func`: A callable that generates values based on dependencies.
-- `name`: Optional name of the stochastic variable.
-- `distribution_type`: `'continuous'`, `'discrete'`, or `'mixed'`.
-- `value`: If the variable represents a constant, this is its value.
-
-#### Methods
-
-- `sample(size=1, context=None)`: Generates samples from the stochastic variable.
-- `pdf(x, size=DEFAULT_STATISTICS_SAMPLE_SIZE, bandwidth='scott', context=None)`: Computes the probability density function at `x`.
-- `pmf(x, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=None)`: Computes the probability mass function at `x`.
-- `cdf(x, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=None)`: Computes the cumulative distribution function at `x`.
-- `mean(size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Calculates the mean of the variable.
-- `std(size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Calculates the standard deviation.
-- `var(size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Calculates the variance.
-- `median(size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Calculates the median.
-- `mode(size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Estimates the mode.
-- `nth_moment(n, size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Calculates the nth moment.
-- `confidence_interval(confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE)`: Computes the confidence interval.
-
-#### Arithmetic Operations
-
-Supports overloaded arithmetic operators for combining stochastic variables:
-
-- Addition: `+`
-- Subtraction: `-`
-- Multiplication: `*`
-- Division: `/`
-- Exponentiation: `**`
-
----
-
-### StochasticVector Class
-
-Represents a stochastic vector composed of multiple stochastic variables.
-
-#### Initialization
+It's good practice to set a random seed for reproducibility:
 
 ```python
-StochasticVector(*variables, name=None)
+set_random_seed(1)
 ```
 
-**Parameters**:
-- `variables`: Instances of `StochasticVariable` to include in the vector.
-- `name`: Optional name of the stochastic vector.
+## Defining Stochastic Variables
 
-#### Methods
+In ProbPy, stochastic variables are instances of the `StochasticVariable` class. By default, a stochastic variable follows a continuous uniform distribution on the unit interval.
 
-- `sample(size=1, context=None)`: Samples from all component variables.
-- `norm(p=2)`: Computes the p-norm of the stochastic vector.
-- `dot(other)`: Computes the dot product with another stochastic vector.
-- `cross(other)`: Computes the cross product with another 3D stochastic vector.
-
-#### Element-wise Operations
-
-Supports element-wise arithmetic operations with other vectors, variables, or scalars:
-
-- Addition: `+`
-- Subtraction: `-`
-- Multiplication: `*`
-- Division: `/`
-
----
-
-### Core Functions
-
-#### `apply`
-
-Applies a custom function to one or more stochastic variables.
+### Basic Usage
 
 ```python
-apply(func, *args, name=None)
+# Define a stochastic variable with default distribution
+X = StochasticVariable()
+
+# Sample the stochastic variable
+print(X.sample())
+
+# Produce multiple samples at once
+print(X.sample(10))
 ```
 
-**Parameters**:
-- `func`: A callable to apply.
-- `*args`: Stochastic variables or constants to pass to the function.
-- `name`: Optional name for the resulting stochastic variable.
+**Output:**
 
-#### `probability`
-
-Estimates the probability that a given condition involving stochastic variables is True.
-
-```python
-probability(condition, *args, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=None)
+```
+0.417022004702574
+[0.72032449 0.00011437 0.30233257 0.14675589 0.09233859 0.18626021
+ 0.34556073 0.39676747 0.53881673 0.41919451]
 ```
 
-**Parameters**:
-- `condition`: A callable that returns a boolean array.
-- `*args`: Stochastic variables or constants used in the condition.
-- `size`: Number of samples to generate.
-- `context`: Optional context for sample caching.
+### Naming Variables
 
----
-
-## Distributions Module
-
-Provides classes for various probability distributions.
-
-### Base Classes
-
-#### `Distribution`
-
-An abstract base class for all distributions.
-
-#### `ParametricDistribution`
-
-A base class for parametric distributions that handles parameter resolution and dependencies.
-
-#### `StandardDistribution`
-
-A class for standard distributions, typically from `scipy.stats`.
-
-### Standard Distributions
-
-Below are some of the standard distributions provided:
-
-#### Discrete Distributions
-
-- `DiscreteUniformDistribution(a, b)`
-- `BernoulliDistribution(p)`
-- `BinomialDistribution(n, p)`
-- `GeometricDistribution(p)`
-- `HypergeometricDistribution(M, n, N)`
-- `PoissonDistribution(mu)`
-- `NegativeBinomialDistribution(n, p)`
-- `MultinomialDistribution(n, p)`
-
-#### Continuous Distributions
-
-- `ContinuousUniformDistribution(a, b)`
-- `ExponentialDistribution(lambd=1)`
-- `NormalDistribution(mu=0, sigma=1)`
-- `LogNormalDistribution(s, scale=np.exp(0))`
-- `GammaDistribution(shape, scale=1)`
-- `ChiSquaredDistribution(df)`
-- `RayleighDistribution(scale=1)`
-- `BetaDistribution(a, b)`
-- `CauchyDistribution(x0=0, gamma=1)`
-- `StandardArcsineDistribution()`
-- `DirichletDistribution(alpha)`
-
-Each distribution class provides methods for sampling, calculating PDF/PMF, and CDF, depending on whether the distribution is continuous or discrete.
-
-#### CustomDistribution Class
-
-Allows defining a custom probability distribution with user-specified behavior.
-
-#### Initialization
+Assigning unique names to stochastic variables is encouraged:
 
 ```python
-CustomDistribution(func, domain=None, distribution_type='continuous', **params)
+# The brightness of a light
+Y = StochasticVariable(name="Brightness")
+
+print(Y)
 ```
 
-**Parameters**:
-- `func`: A callable representing the PDF (for continuous) or PMF (for discrete).
-- `domain`: Tuple specifying the domain of the distribution.
-- `distribution_type`: `'continuous'` or `'discrete'`.
-- `**params`: Additional parameters required by `func`.
+**Output:**
 
+```
+Brightness
+```
 
----
+### Specifying Distributions
 
-## Transformations Module
+You can define a stochastic variable with a specific distribution:
 
-### Overview
-The transformations module provides a suite of mathematical functions that can be applied to stochastic variables. These transformations allow you to compute derived quantities, analyze results, or preprocess data for further analysis.
-
-### Available Transformations
-
-#### Exponential and Logarithmic Functions
-- `exp(X)`: Computes the exponential of `X`.
-- `expm1(X)`: Computes `exp(X) - 1`.
-- `log(X)`: Computes the natural logarithm of `X`.
-- `log10(X)`: Computes the base-10 logarithm of `X`.
-- `log2(X)`: Computes the base-2 logarithm of `X`.
-- `log1p(X)`: Computes the natural logarithm of `1 + X`.
-
-#### Power Functions
-- `sqrt(X)`: Computes the square root of `X`.
-- `square(X)`: Computes the square of `X`.
-- `power(X, y)`: Computes `X` raised to the power of `y`.
-- `cbrt(X)`: Computes the cube root of `X`.
-- `reciprocal(X)`: Computes the reciprocal of `X`.
-
-#### Trigonometric Functions
-- `sin(X)`, `cos(X)`, `tan(X)`: Standard trigonometric functions.
-- `arcsin(X)`, `arccos(X)`, `arctan(X)`: Inverse trigonometric functions.
-- `arctan2(X, Y)`: Computes the angle between the positive x-axis and the line to the point `(X, Y)`.
-- `hypot(X, Y)`: Computes the Euclidean norm.
-
-#### Hyperbolic Functions
-- `sinh(X)`, `cosh(X)`, `tanh(X)`: Hyperbolic functions.
-- `arcsinh(X)`, `arccosh(X)`, `arctanh(X)`: Inverse hyperbolic functions.
-
-#### Rounding and Clipping Functions
-- `round_(X, decimals=0)`: Rounds `X` to the specified number of decimals.
-- `floor(X)`: Computes the floor of `X`.
-- `ceil(X)`: Computes the ceiling of `X`.
-- `trunc(X)`: Truncates `X` to an integer.
-- `clip(X, a_min, a_max)`: Clamps the values of `X` within `[a_min, a_max]`.
-
-#### Sign and Comparison Functions
-- `abs_(X)`: Computes the absolute value of `X`.
-- `sign(X)`: Returns the sign of `X`.
-- `min_(*Xs)`: Computes the minimum value among the inputs.
-- `max_(*Xs)`: Computes the maximum value among the inputs.
-
----
-
-## Monte Carlo Module
-
-### Overview
-This module enables Monte Carlo simulations for probabilistic modeling. It provides utilities for generating results based on models and summarizing or visualizing the outcomes.
-
-### Functions
-
-#### `monte_carlo_simulate`
-Performs Monte Carlo simulation for a given model.
-
-**Parameters**:
-- `model`: A callable that defines the simulation model.
-- `variables`: List of stochastic variables used as inputs to the model.
-- `trials`: Number of Monte Carlo trials (default: `10,000`).
-- `seed`: Random seed for reproducibility.
-
-#### `summarize_simulation`
-Summarizes simulation results with basic statistics.
-
-**Parameters**:
-- `results`: Array of simulation results.
-- `confidence_level`: Confidence level for the confidence interval.
-
-#### `plot_simulation`
-Plots the distribution of Monte Carlo simulation results.
-
-**Parameters**:
-- `results`: Array of simulation results.
-- `bins`: Number of bins in the histogram.
-- `density`: Whether to normalize the histogram.
-- `title`: Title of the plot.
-
----
-
-## Plots Module
-
-### Overview
-Provides utilities for visualizing stochastic variables and their dependencies.
-
-### Functions
-
-#### `plot_distribution`
-Plots the distribution of a `StochasticVariable`.
-
-**Parameters**:
-- `stochastic_var`: The variable to plot.
-- `num_samples`: Number of samples to generate for the plot.
-- `bins`: Number of bins for the histogram.
-- `density`: Whether to normalize the histogram.
-- `title`: Title of the plot.
-
-#### `plot_dependency_graph`
-Visualizes the dependency graph of stochastic variables and vectors.
-
-**Parameters**:
-- `variables`: List of `StochasticVariable` or `StochasticVector` instances.
-- `title`: Title of the graph.
-
----
-
-## Constants Module
-
-### Overview
-Defines default constants used throughout the library.
-
-### Available Constants
-- `DEFAULT_STATISTICS_SAMPLE_SIZE`: Default sample size for statistical calculations.
-- `DEFAULT_PLOTTING_SAMPLE_SIZE`: Default sample size for plotting.
-
----
-
-## Usage Examples
-
-### Example 1: Creating and Sampling a Stochastic Variable
 ```python
-from probpy.core import StochasticVariable
 from probpy.distributions import NormalDistribution
 
-# Define a stochastic variable
-X = StochasticVariable(distribution=NormalDistribution(mu=0, sigma=1))
+# Define a standard normally distributed variable
+Z = StochasticVariable(NormalDistribution(mu=0, sigma=1), name="Z")
 
-# Generate samples
-samples = X.sample(size=1000)
-
-# Compute statistics
-mean = X.mean()
-std_dev = X.std()
+print(Z.sample(10))
 ```
 
-### Example 2: Monte Carlo Simulation
+**Output:**
+
+```
+[-1.01701414  0.63736181 -0.85990661  1.77260763 -1.11036305  0.18121427
+  0.56434487 -0.56651023  0.7299756   0.37299379]
+```
+
+### Changing Distributions
+
+You can change the distribution of a variable if it's not in use by other variables:
+
 ```python
-from probpy.monte_carlo import monte_carlo_simulate, summarize_simulation
-from probpy.core import StochasticVariable
-from probpy.distributions import NormalDistribution
+from probpy.distributions import ExponentialDistribution
 
-# Define stochastic variables
-X = StochasticVariable(distribution=NormalDistribution(mu=5, sigma=2))
-Y = StochasticVariable(distribution=NormalDistribution(mu=10, sigma=3))
+# Update Z to follow an exponential distribution with lambda=2
+Z.set_distribution(ExponentialDistribution(lambd=2))
 
-# Define the model
-def model(x_samples, y_samples):
-    return x_samples + y_samples
-
-# Perform simulation
-results = monte_carlo_simulate(model, [X, Y])
-
-# Summarize results
-summary = summarize_simulation(results)
-print(summary)
+print(Z.sample(10))
 ```
 
-### Example 3: Plotting a Dependency Graph
+**Output:**
+
+```
+[1.12502793 0.04443977 0.01991894 0.09306264 1.05245149 0.05176267
+ 0.27331935 1.58372944 0.38089001 0.5886283 ]
+```
+
+### Combining Variables
+
+Stochastic variables support arithmetic operations:
+
+```python
+X = StochasticVariable(NormalDistribution(0,1), name="X")
+Y = StochasticVariable(ExponentialDistribution(1.5), name="Y")
+
+Z = X + Y
+
+print(Z)
+
+# Update the name of the combined variable
+Z.name = "Z"
+
+print(Z)
+print(Z.sample(10))
+```
+
+**Output:**
+
+```
+X + Y
+Z
+[ 1.23480579 -1.11655719 -0.09285109  1.11934358 -0.01166563  0.60947085
+  0.90997763  0.45767799 -0.93225371 -0.41620933]
+```
+
+### Plotting Distributions
+
+You can visualize the distribution of any stochastic variable:
+
+```python
+from probpy.plots import plot_distribution
+
+plot_distribution(Z)
+```
+
+![Distribution Plot](img/output_16_0.png)
+
+## Statistical Methods
+
+Each `StochasticVariable` instance offers various statistical methods:
+
+- `pdf(x)`: Probability density function.
+- `pmf(x)`: Probability mass function.
+- `cdf(x)`: Cumulative distribution function.
+- `mean(size)`: Mean based on samples.
+- `std(size)`: Standard deviation.
+- `var(size)`: Variance.
+- `median(size)`: Median.
+- `mode(size)`: Mode.
+- `nth_moment(n, size)`: n-th moment.
+- `mean_confidence_interval(confidence_level, size)`: Confidence interval of the mean.
+- `variance_confidence_interval(confidence_level, size)`: Confidence interval of the variance.
+- `confidence_interval(confidence_level, size)`: Confidence interval of the variable.
+
+Example:
+
+```python
+X = StochasticVariable(ExponentialDistribution(3), name="X")
+Y = StochasticVariable(NormalDistribution(-2, 4), name="Y")
+
+Z = X + Y
+
+print("Summary of Z:\n")
+print("Mean:", Z.mean())
+print("Standard deviation:", Z.std())
+print("Variance:", Z.var())
+print("Median:", Z.median())
+print("Mode:", Z.mode())
+print("4th Moment:", Z.nth_moment(4))
+print("Confidence interval of the mean of Z:", Z.mean_confidence_interval())
+print("Confidence interval of the variance of Z:", Z.variance_confidence_interval())
+print("Confidence interval of Z:", Z.confidence_interval())
+```
+
+**Output:**
+
+```
+Summary of Z:
+
+Mean: -1.6502189618157412
+Standard deviation: 3.9913929432617126
+Variance: 16.15595553051518
+Median: -1.7052577640988602
+Mode: -1.4865815097515842
+4th Moment: 1066.3703633255077
+Confidence interval of the mean of Z: (-1.7399811148866853, -1.5827442921127979)
+Confidence interval of the variance of Z: (15.64232745484988, 16.534054891890246)
+Confidence interval of Z: (-9.531454542500288, 6.091323195286024)
+```
+
+You can also use the `summary()` method:
+
+```python
+Z.summary()
+```
+
+**Output:**
+
+```
+------------------------------------------------------------
+Summary of X + Y
+------------------------------------------------------------
+Mean:     -1.648248938238822
+Variance: 15.922126025495475
+Skewness: -78.15765782942302
+Kurtosis: 1086.6235091847827
+------------------------------------------------------------
+```
+
+## Transformations
+
+The `probpy.transformations` module provides functions to transform stochastic variables. These functions return new stochastic variables if the input is stochastic.
+
+Available functions include:
+
+- Exponential and logarithmic functions: `exp`, `log`, `log10`, etc.
+- Power functions: `sqrt`, `square`, `power`, etc.
+- Trigonometric functions: `sin`, `cos`, `tan`, etc.
+- Hyperbolic functions: `sinh`, `cosh`, `tanh`, etc.
+- Rounding and clipping functions: `round_`, `floor`, `ceil`, `clip`, etc.
+- Sign and comparison functions: `abs_`, `sign`, `min_`, `max_`, `sum_`.
+
+Example:
+
+```python
+from probpy.distributions import BinomialDistribution
+import probpy.transformations as pp_trans
+
+X = StochasticVariable(BinomialDistribution(4, 0.6), name="X")
+
+Y = pp_trans.exp(X)
+
+Y.summary()
+plot_distribution(Y)
+```
+
+**Output:**
+
+```
+------------------------------------------------------------
+Summary of exp(X)
+------------------------------------------------------------
+Mean:     16.904454932774787
+Variance: 259.18366692226874
+Skewness: 24193.64360771619
+Kurtosis: 1169111.014071847
+------------------------------------------------------------
+```
+
+![Exponential Transformation Plot](img/output_28_1.png)
+
+## Calculating Probabilities
+
+Use the `probability` function from `probpy.core` to calculate the probability of certain events:
+
+```python
+from probpy.distributions import PoissonDistribution
+from probpy.core import probability
+
+X = StochasticVariable(PoissonDistribution(3), name="X")
+
+print("P(X > 4) =", probability(lambda x: x > 4, X))
+plot_distribution(X)
+```
+
+**Output:**
+
+```
+P(X > 4) = 0.1874
+```
+
+![Poisson Distribution Plot](img/output_30_1.png)
+
+For a confidence interval of the probability:
+
+```python
+P = probability(lambda x: x > 4, X, stochastic=True, name="P")
+print("Confidence interval for P(X > 4):", P.confidence_interval())
+```
+
+**Output:**
+
+```
+Confidence interval for P(X > 4): (0.161, 0.21)
+```
+
+## Stochastic Vectors and Matrices
+
+### Stochastic Vectors
+
+The `StochasticVector` class allows operations with vectors containing stochastic variables.
+
+Example:
+
+```python
+from probpy.core import StochasticVector
+
+X = StochasticVariable(NormalDistribution(0,1), name="X")
+Y = StochasticVariable(NormalDistribution(0,1), name="Y")
+
+V1 = StochasticVector(X, Y, 0.5, name="V1")
+V2 = StochasticVector(1, 2, X, name="V2")
+
+print(V1)
+print(V2)
+
+print(V1.sample())
+print(V2.sample())
+```
+
+**Output:**
+
+```
+[X, Y, 0.5]
+[1, 2, X]
+[-1.7743466414040037, 0.6123927134758784, 0.5]
+[1.0, 2.0, 0.4298832916671139]
+```
+
+Calculating the norm and dot product:
+
+```python
+# Calculating the dot product of two vectors
+Z = V1.dot(V2)
+
+# Calculating the 2-norm of a vector
+N = V1.norm()
+
+print(N)
+print(Z)
+
+N.summary()
+Z.summary()
+```
+
+**Output:**
+
+```
+(V1)_norm_2
+dot(V1, V2)
+------------------------------------------------------------
+Summary of (V1)_norm_2
+------------------------------------------------------------
+Mean:     1.3803482442340549
+Variance: 0.3556024128540062
+Skewness: 4.3140106576284065
+Kurtosis: 9.25574962842837
+------------------------------------------------------------
+------------------------------------------------------------
+Summary of dot(V1, V2)
+------------------------------------------------------------
+Mean:     -0.026879600804630168
+Variance: 6.313235544026866
+Skewness: 0.7366929900975743
+Kurtosis: 113.75284604831143
+------------------------------------------------------------
+```
+
+### Stochastic Matrices
+
+The `StochasticMatrix` class allows operations with matrices containing stochastic variables.
+
+Example:
+
+```python
+from probpy.core import StochasticMatrix
+
+M = StochasticMatrix([[X, 0.5], [Y, X + Y]], name="M")
+
+print(M)
+print(M.T)
+print(M @ M.T)
+```
+
+**Output:**
+
+```
+[[X, 0.5],
+ [Y, X + Y]]
+
+[[X, Y],
+ [0.5, X + Y]]
+
+[[(X * X) + (0.5 * 0.5), (X * Y) + (0.5 * (X + Y))],
+ [(Y * X) + ((X + Y) * 0.5), (Y * Y) + ((X + Y) * (X + Y))]]
+```
+
+Transforming vectors using matrices:
+
+```python
+V = StochasticVector(X, Y, name="V")
+Transformed_V = M @ V
+Transformed_V.name = "Transformed_V"
+
+print(Transformed_V)
+plot_distribution(Transformed_V.norm())
+```
+
+![Transformed Vector Norm Plot](img/output_46_1.png)
+
+## Dependency Graphs
+
+Use `plot_dependency_graph` from `probpy.plots` to visualize variable dependencies:
+
 ```python
 from probpy.plots import plot_dependency_graph
-from probpy.core import StochasticVariable
-from probpy.distributions import NormalDistribution
 
-# Create dependent variables
-X = StochasticVariable(distribution=NormalDistribution(mu=0, sigma=1))
-Y = X + 3
-
-# Plot dependency graph
-plot_dependency_graph([Y])
+plot_dependency_graph(M)
 ```
+
+![Dependency Graph](img/output_48_0.png)
+
+Adjust the depth of the graph:
+
+```python
+plot_dependency_graph(M, depth=2)
+```
+
+![Dependency Graph with Depth 2](img/output_50_0.png)
+
+## Goodness of Fit Tests
+
+The `probpy.goodness_of_fit` module provides functions to test if a variable fits a distribution:
+
+- `kolmogorov_smirnov_test(subject, X, summary=True, alpha=0.05)`
+- `chi_square_test(subject, X, summary=True, alpha=0.05)`
+
+Example:
+
+```python
+from probpy.distributions import ContinuousUniformDistribution, CustomDistribution
+from probpy.goodness_of_fit import chi_square_test, kolmogorov_smirnov_test
+import probpy.transformations as pp_trans
+
+X = StochasticVariable(ContinuousUniformDistribution(0,1), name="X")
+Y = StochasticVariable(ContinuousUniformDistribution(0,1), name="Y")
+
+Z = pp_trans.max_(X, Y)
+
+# The true CDF of Z is F(x) = x^2, so PDF(x) = 2x
+true_distribution = CustomDistribution(lambda x: 2*x, domain=(0,1))
+
+chi_square_test(true_distribution, Z)
+kolmogorov_smirnov_test(true_distribution, Z)
+```
+
+**Output:**
+
+```
+--------------------------------------------------------------------
+                          Chi-square test
+--------------------------------------------------------------------
+Chi-Square Statistic: 27.238579751638735
+P-value: 0.5052855598000592
+
+The StochasticVariable max(X, Y) fits the distribution 
+CONCLUSION: fail to reject the null hypothesis.
+--------------------------------------------------------------------
+
+Note: The p-value represents the probability of observing results as 
+extreme as the current data, assuming the null hypothesis is true.
+A low p-value (e.g., ≤ 0.05) indicates strong evidence against the 
+null hypothesis, while a high p-value suggests the data is 
+consistent with the null hypothesis.
+
+--------------------------------------------------------------------
+                         Kolmogorov-Smirnov test
+--------------------------------------------------------------------
+KS Statistic: 0.010005908997324342
+P-value: 0.2675892708126909
+
+The StochasticVariable max(X, Y) fits the distribution. 
+CONCLUSION: fail to reject the null hypothesis.
+--------------------------------------------------------------------
+
+Note: The p-value represents the probability of observing results as 
+extreme as the current data, assuming the null hypothesis is true.
+A low p-value (e.g., ≤ 0.05) indicates strong evidence against the 
+null hypothesis, while a high p-value suggests the data is 
+consistent with the null hypothesis.
+```
+
+## Monte Carlo Simulation
+
+The `probpy.monte_carlo` module contains functions for Monte Carlo simulations:
+
+- `monte_carlo_simulate(model, variables, trials, seed)`
+- `summarize_simulation(results, confidence_level)`
+- `plot_simulation(results, bins, density, title)`
+
+### Estimating π
+
+Example of estimating π using Monte Carlo simulation:
+
+```python
+from probpy.monte_carlo import monte_carlo_simulate
+
+X = StochasticVariable(ContinuousUniformDistribution(-1, 1))
+Y = StochasticVariable(ContinuousUniformDistribution(-1, 1))
+
+def model(x, y):
+    return x**2 + y**2 <= 1  # Checks if point is inside unit circle
+
+results = monte_carlo_simulate(model=model, variables=[X, Y], num_trials=1000000, seed=42)
+pi_estimate = 4 * np.mean(results)
+
+print(f"Estimated value of π: {pi_estimate}")
+```
+
+**Output:**
+
+```
+Estimated value of π: 3.1417068
+```
+
+### Estimating Integrals
+
+Estimating the integral of sin(x) from 0 to π:
+
+```python
+a = 0
+b = np.pi
+
+X = StochasticVariable(ContinuousUniformDistribution(a, b))
+
+results = monte_carlo_simulate(model=np.sin, variables=[X], num_trials=1000000, seed=42)
+integral_estimate = (b - a) * np.mean(results)
+
+print(f"Estimated integral of sin(x) from {a} to {b}: {integral_estimate:.6f}")
+```
+
+**Output:**
+
+```
+Estimated integral of sin(x) from 0 to 3.141592653589793: 2.000621
+```
+
+## Source Code Reference
+
+For detailed implementation specifics, refer to the source code files:
+
+- `core.py`: Core classes and functions.
+- `distributions.py`: Definition of various probability distributions.
+- `goodness_of_fit.py`: Functions for goodness-of-fit tests.
+- `monte_carlo.py`: Functions for Monte Carlo simulations.
+- `plots.py`: Visualization functions.
+- `transformations.py`: Functions for transforming stochastic variables.
+
+---
+
+**Note**: Ensure you have the latest version of ProbPy and its dependencies installed to utilize all features demonstrated in this documentation.
 
 ---
 
@@ -422,12 +613,10 @@ We welcome contributions! Please follow these steps:
 4. Push to the branch: `git push origin feature/your_feature`
 5. Create a pull request.
 
----
-
 
 ## Acknowledgments
 
-We appreciate the use of open-source libraries like NumPy, SciPy, Matplotlib, and NetworkX that make ProbPy possible.
+I really appreciate open-source libraries like NumPy, SciPy, Matplotlib, and NetworkX that make ProbPy possible.
 
 ---
 

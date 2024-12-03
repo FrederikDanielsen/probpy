@@ -8,7 +8,7 @@ from scipy.stats import kstest, chisquare
 import numpy as np
 
 
-def kolmogorov_smirnov_test(subject, X, summary=True, alpha=0.05):
+def kolmogorov_smirnov_test(subject, X, summary=True, alpha=0.05, sample_size=DEFAULT_STATISTICS_SAMPLE_SIZE):
     """
     Description: Performs a Komogorov-Smirnov goodness of fit test on data or a StochasticVariable.
 
@@ -28,7 +28,7 @@ def kolmogorov_smirnov_test(subject, X, summary=True, alpha=0.05):
         dist = subject
 
     if isinstance(X, StochasticVariable):
-        data = X.sample(size=DEFAULT_STATISTICS_SAMPLE_SIZE)
+        data = X.sample(size=sample_size)
 
     ks_stat, p_value = kstest(data, dist.cdf)
     
@@ -48,10 +48,10 @@ def kolmogorov_smirnov_test(subject, X, summary=True, alpha=0.05):
         print("--------------------------------------------------------------------")
         print("\nNote: The p-value represents the probability of observing results as \nextreme as the current data, assuming the null hypothesis is true.\nA low p-value (e.g., ≤ 0.05) indicates strong evidence against the \nnull hypothesis, while a high p-value suggests the data is \nconsistent with the null hypothesis.\n")
 
-    return ks_stat, p_value
+    return float(ks_stat), float(p_value)
 
 
-def chi_square_test(subject, X, summary=True, alpha=0.05):
+def chi_square_test(subject, X, summary=True, alpha=0.05, sample_size=DEFAULT_STATISTICS_SAMPLE_SIZE):
     """
     Description: Performs a Chi-square goodness of fit test on data or a StochasticVariable.
 
@@ -72,7 +72,7 @@ def chi_square_test(subject, X, summary=True, alpha=0.05):
         dist = subject
 
     if isinstance(X, StochasticVariable):
-        data = X.sample(size=DEFAULT_STATISTICS_SAMPLE_SIZE)
+        data = X.sample(size=sample_size)
 
     # Compute bins and observed frequencies
     bins = np.histogram_bin_edges(data, bins='auto')
@@ -104,4 +104,4 @@ def chi_square_test(subject, X, summary=True, alpha=0.05):
         print("\nNote: The p-value represents the probability of observing results as \nextreme as the current data, assuming the null hypothesis is true.\nA low p-value (e.g., ≤ 0.05) indicates strong evidence against the \nnull hypothesis, while a high p-value suggests the data is \nconsistent with the null hypothesis.\n")
 
 
-    return chi_stat, p_value
+    return float(chi_stat), float(p_value)

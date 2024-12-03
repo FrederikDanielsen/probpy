@@ -1,6 +1,6 @@
 # core.py
 
-__all__ = ["StochasticVariable", "StochasticVector", "apply", "probability"]
+__all__ = ["StochasticVariable", "StochasticVector", "apply", "probability", "set_random_seed", "delete"]
 
 # IMPORTS
 import numpy as np
@@ -8,10 +8,13 @@ import operator
 from scipy.stats import gaussian_kde
 from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 from scipy.stats import t, chi2, distributions
+from numbers import Number
+from functools import reduce
 
 
 
 # Core classes
+
 
 class StochasticVariable:
 
@@ -24,93 +27,47 @@ class StochasticVariable:
         while cls.instances:
             instance = cls.instances.pop() 
             del instance
-        
-    def __init__(
-        self,
-        distribution=None,
-        dependencies=None,
-        func=None,
-        name=None,
-        distribution_type=None,
-        value=None
-    ):
+
+
+    def __init__(self, distribution=None, name=None):
         """
         Represents a stochastic variable.
 
         Parameters:
-            - distribution: An instance of a distribution.
-            - dependencies: A list of other StochasticVariables this variable depends on.
-            - func: A callable that generates values based on dependencies.
+            - distribution: An instance of a Distribution.
             - name: Optional name of the stochastic variable.
-            - distribution_type: 'continuous', 'discrete', or 'mixed'.
-            - value: If the variable represents a constant, this is its value.
         """
-        
-        # Input check
 
-        if dependencies is None: dependencies = []
-
-        if not any([value, distribution, func]):
+        if not distribution:
             from .distributions import ContinuousUniformDistribution
             distribution = ContinuousUniformDistribution(0, 1)
 
-        if len([0 for x in [value, distribution, func] if x]) > 1:
-            raise ValueError("A StochasticVariable can only have one of the following: a function, a distribution, or a constant value!")
-
-        if value:
-            name = str(value)
-            self.distribution_type = "discrete"
-            if dependencies:
-                raise ValueError("A constant StochasticVariable can't have dependencies!")                
-            if any([distribution, func]):
-                raise ValueError("A StochasticVariable cannot have a value alongside distribution, function, or dependencies.")
-
-        if distribution and distribution_type and distribution_type != distribution.distribution_type:
-            raise ValueError(
-                f"Distribution type mismatch: Type of given distribution '{distribution.distribution_type}' "
-                f"doesn't match specified distribution type '{distribution_type}'!"
-            )
-
-        if any(instance.name == name and not instance.constant for instance in StochasticVariable.instances):
-            raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
-
-        if func:
-            if not dependencies:
-                raise ValueError("StochasticVaraible with a function must have dependencies!")
-
-            types = set(dep.distribution_type for dep in dependencies)
-            if len(types) == 1:  # All dependencies have the same type 
-                distribution_type = types.pop()
-            else:  # Mixed types among dependencies     
-                distribution_type = "mixed"
-
-        if distribution:
-            distribution_type = distribution.distribution_type
-            dependencies.extend(distribution.get_dependencies())
+        #if any(instance.name == name and not instance.distribution_type == "constant" for instance in StochasticVariable.instances):
+        #    raise ValueError(f'A stochastic variable with the name "{name}" already exists!')
 
 
         self.distribution = distribution
-        self.distribution_type = distribution_type
-        self.func = func
-        self.value = value
         self.name = name or f"SV_{id(self)}"
-        self.dependencies = dependencies
 
         self._check_circular_dependency()
-
         StochasticVariable.instances.append(self)
-
 
     @property
     def in_use(self):
         for var in StochasticVariable.instances:
-            if self in var.dependencies:
+            if self in var.get_all_dependencies():
                 return True
         return False
 
+
     @property
-    def constant(self):
-        return self.value is not None
+    def distribution_type(self):
+        return self.distribution.distribution_type
+
+
+    @property
+    def dependencies(self):
+        return self.distribution.get_dependencies()
 
     def set_distribution(self, dist):
         from .distributions import Distribution
@@ -118,19 +75,8 @@ class StochasticVariable:
             raise ValueError("Input must be of type Distribution!")
         if self.in_use:
             raise Exception("Cannot set distribution of variable that is in use!")
-        if any([self.value, self.func]):
-            raise Exception("Cannot set distribtuion of a variable with a function or constant value!")
         self.distribution = dist
-        self.distribution_type = dist.distribution_type
-
-    def _determine_distribution_type(self):
-        types = set(dep.distribution_type for dep in self.dependencies)
-        if len(types) == 1:
-            # All dependencies have the same type
-            return types.pop()
-        else:
-            # Mixed types among dependencies
-            return "mixed"
+        
 
     def _check_circular_dependency(self):
         all_deps = self.get_all_dependencies()
@@ -156,8 +102,8 @@ class StochasticVariable:
         stack.add(self)
         visited.add(self)
 
-        deps = set(self.dependencies)
-        for dep in self.dependencies:
+        deps = self.distribution.get_dependencies()
+        for dep in deps:
             deps.update(dep.get_all_dependencies(visited, stack))
 
         stack.remove(self)
@@ -173,13 +119,11 @@ class StochasticVariable:
             if len(cached_samples) >= size:
                 return cached_samples[:size]
             else:
-                additional_samples = self._generate_samples(
-                    size - len(cached_samples), context
-                )
+                additional_samples = self.distribution.sample(size - len(cached_samples), context=context)
                 context[self] = np.concatenate([cached_samples, additional_samples])
                 return context[self][:size]
 
-        samples = self._generate_samples(size, context)
+        samples = self.distribution.sample(size=size, context=context)
         context[self] = samples
         return samples if len(samples) > 1 else samples[0]
 
@@ -264,136 +208,106 @@ class StochasticVariable:
 
     # Statistical methods
     def mean(self, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        return np.mean(samples)
+        return self.distribution.mean(size=size)
 
     def std(self, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        return np.std(samples, ddof=1)
+        return self.distribution.std(size=size)
 
     def var(self, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        return np.var(samples, ddof=1)
-
+        return self.distribution.var(size=size)
+    
     def median(self, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        return np.median(samples)
+        return self.distribution.median(size=size)
 
     def mode(self, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        if self.distribution_type == 'continuous':
-            kde = gaussian_kde(samples)
-            x_grid = np.linspace(np.min(samples), np.max(samples), 1000)
-            pdf_values = kde.evaluate(x_grid)
-            mode_index = np.argmax(pdf_values)
-            return x_grid[mode_index]
-        elif self.distribution_type == 'discrete':
-            values, counts = np.unique(samples, return_counts=True)
-            max_count_indices = np.where(counts == np.max(counts))[0]
-            return values[max_count_indices[0]]  # Return the first mode
-        else:
-            raise ValueError("Mode calculation is not defined for mixed distributions.")
+        return self.distribution.mode(size=size)
 
     def nth_moment(self, n, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        return np.mean(samples ** n)
+        return self.distribution.nth_moment(n, size=size)
 
     def mean_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        mean = np.mean(samples)
-        sem = np.std(samples, ddof=1) / np.sqrt(size)
-        h = sem * t.ppf((1 + confidence_level) / 2., size - 1)
-        if self.distribution_type == "discrete":
-            return np.floor(mean-h), np.ceil(mean+h)
-        return float(mean - h), float(mean + h)
+        return self.distribution.mean_confidence_interval(confidence_level=confidence_level, size=size)
     
     def variance_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
-        n = size
-        sample_variance = np.var(samples, ddof=1)  # Sample variance with Bessel's correction
-        alpha = 1 - confidence_level
-        
-        # Compute critical chi-squared values
-        chi2_lower = chi2.ppf(alpha / 2, df=n-1)  # Lower critical value
-        chi2_upper = chi2.ppf(1 - alpha / 2, df=n-1)  # Upper critical value
-        
-        # Calculate confidence interval
-        lower_bound = (n - 1) * sample_variance / chi2_upper
-        upper_bound = (n - 1) * sample_variance / chi2_lower
-        
-        if self.distribution_type == "discrete":
-            return np.floor(lower_bound), np.ceil(upper_bound)
-        return float(lower_bound), float(upper_bound)
+        return self.distribution.variance_confidence_interval(confidence_level=confidence_level, size=size)
 
     def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
-        samples = self.sample(size=size)
+        return self.distribution.confidence_interval(confidence_level=confidence_level, size=size)
 
-        alpha = 1 - confidence_level
-        lower_percentile = 100 * (alpha / 2)  # e.g., 2.5% for 95% confidence
-        upper_percentile = 100 * (1 - alpha / 2)  # e.g., 97.5% for 95% confidence
-        
-        lower_bound = np.percentile(samples, lower_percentile)
-        upper_bound = np.percentile(samples, upper_percentile)
-        
-        return float(lower_bound), float(upper_bound)
+    def summary(self):
+        print("-"*60)
+        print("Summary of", self.name)
+        self.distribution.summary()
 
     def print(self):
         print(self)
 
     def __str__(self):
+        from .distributions import ConstantDistribution
+        if isinstance(self.distribution, ConstantDistribution):
+            return str(self.distribution.value)
         return self.name
 
     # Overloaded arithmetic operators
 
     def __add__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.add, self, other, name=f"({self.name} + {other.name})")
-        return apply(operator.add, self, other, name=f"({self.name} + {other})")
+        if other == 0:
+            return self
+        else:
+            return apply(operator.add, self, other, name=operation_name("+", self, other))
 
     def __radd__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.add, other, self, name=f"({other.name} + {self.name})")
-        return apply(operator.add, other, self, name=f"({other} + {self.name})")
+        if other == 0:
+            return self
+        else:
+            return apply(operator.add, other, self, name=operation_name("+", other, self))
 
     def __sub__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.sub, self, other, name=f"({self.name} - {other.name})")
-        return apply(operator.sub, self, other, name=f"({self.name} - {other})")
+        if other == 0:
+            return self
+        else:
+            return apply(operator.sub, self, other, name=operation_name("-", self, other))
 
     def __rsub__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.sub, other, self, name=f"({other.name} - {self.name})")
-        return apply(operator.sub, other, self, name=f"({other} - {self.name})")
+        if other == 0:
+            return self
+        else:
+            return apply(operator.sub, other, self, name=operation_name("-", other, self))
 
     def __mul__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.mul, self, other, name=f"({self.name} * {other.name})")
-        return apply(operator.mul, self, other, name=f"({self.name} * {other})")
+        if other == 1:
+            return self
+        else:
+            return apply(operator.mul, self, other, name=operation_name("*", self, other))
 
     def __rmul__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.mul, other, self, name=f"({other.name} * {self.name})")
-        return apply(operator.mul, other, self, name=f"({other} * {self.name})")
+        if other == 1:
+            return self
+        else:
+            return apply(operator.mul, other, self, name=operation_name("*", other, self))
 
     def __truediv__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.truediv, self, other, name=f"({self.name} / {other.name})")
-        return apply(operator.truediv, self, other, name=f"({self.name} / {other})")
+        if other == 1:
+            return self
+        else:
+            return apply(operator.truediv, self, other, name=operation_name("/", self, other))
 
     def __rtruediv__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.truediv, other, self, name=f"({other.name} / {self.name})")
-        return apply(operator.truediv, other, self, name=f"({other} / {self.name})")
+        return apply(operator.truediv, other, self, name=operation_name("/", other, self))
 
     def __pow__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.pow, self, other, name=f"({self.name} ** {other.name})")
-        return apply(operator.pow, self, other, name=f"({self.name} ** {other})")
+        if other == 0:
+            return 1
+        elif other == 1:
+            return self
+        else:
+            return apply(operator.pow, self, other, name=operation_name("^", self, other))
 
     def __rpow__(self, other):
-        if isinstance(other, StochasticVariable):
-            return apply(operator.pow, other, self, name=f"({other.name} ** {self.name})")
-        return apply(operator.pow, other, self, name=f"({other} ** {self.name})")
+        if other == 0:
+            return 0
+        else:
+            return apply(operator.pow, other, self, name=operation_name("^", other, self))
 
 
 class StochasticVector:
@@ -417,7 +331,7 @@ class StochasticVector:
         for var in variables:
             self.append(var)
 
-        self.name = name or "StochasticVector"
+        self.name = name or "SVec_" + str(id(self))
 
     def sample(self, size=1, context=None):
         """
@@ -433,7 +347,7 @@ class StochasticVector:
         if context is None:
             context = {}
         samples = [var.sample(size=size, context=context) for var in self.variables]
-        return np.column_stack(samples)
+        return np.column_stack(samples)[0].tolist() if np.shape(np.column_stack(samples))[0] == 1 else np.column_stack(samples).tolist()
 
     def get_all_dependencies(self, visited=None, stack=None):
         """
@@ -454,16 +368,18 @@ class StochasticVector:
         return dependencies
 
     def append(self, element):
-        if isinstance(element, float) or isinstance(element, int):
-            self.variable.append(StochasticVariable(value=element, name=f"_ProbPy_Constant({element})"))
+        if isinstance(element, Number):
+            from .distributions import ConstantDistribution
+            self.variables.append(StochasticVariable(ConstantDistribution(element)))
         elif isinstance(element, StochasticVariable):
              self.variables.append(element)
         else:
             raise ValueError(f"Element must be of type 'int', 'float', or 'StochasticVariable'. Got '{type(element)}'") 
         
     def insert(self, index, element):
-        if isinstance(element, float) or isinstance(element, int):
-            self.variable.insert(index, StochasticVariable(value=element, name=f"_ProbPy_Constant({element})"))
+        if isinstance(element, Number):
+            from .distributions import ConstantDistribution
+            self.variables.insert(index, StochasticVariable(ConstantDistribution(element)))
         elif isinstance(element, StochasticVariable):
              self.variables.insert(index, element)
         else:
@@ -471,26 +387,14 @@ class StochasticVector:
 
     def pop(self, identifier=None):
         if identifier is None:
-            identifier = len(self) - 1
-        if isinstance(identifier, str):
-            for var in self.variables:
-                if var.name == identifier:
-                    self.varaibles.remove(var)
-                    return var
-            raise ValueError(f"No variable in vector with name '{identifier}'!")           
+            identifier = len(self) - 1        
         elif isinstance(identifier, int):
             return self.variables.pop(identifier)
         else:
             raise ValueError(f"Identifier must be of type 'int' to indicate position in vector or 'str' to indicate the name of the element. Got {type(identifier)}!")
 
-    def remove(self, identifier):
-        if isinstance(identifier, str):
-            for var in self.variables:
-                if var.name == identifier:
-                    self.variables.remove(var)
-                    return
-            raise ValueError(f"No variable in vector with name '{identifier}'!")           
-        elif isinstance(identifier, int):
+    def remove(self, identifier):   
+        if isinstance(identifier, int):
             self.variables.pop(identifier)
         elif isinstance(identifier, StochasticVariable):
             if identifier in self.variables:
@@ -519,7 +423,7 @@ class StochasticVector:
         return apply(
             lambda *components: np.linalg.norm(np.column_stack(components), ord=p, axis=1),
             *self.variables,
-            name=f"{self.name}_norm_{p}"
+            name=f"({self.name})_norm_{p}"
         )
   
     def dot(self, other):  # Dot Product
@@ -590,29 +494,21 @@ class StochasticVector:
         string = ""
         string += "["
         for i, element in enumerate(self.variables):
-            if element.constant:
-                string += element.value
-            else:
-                string += element.name
+            string += str(element)
             if i < n-1:
                 string += ", "
         string += "]"
         return string
 
     def __getitem__(self, identifier):
-        if isinstance(identifier, str):
-            for var in self.variables:
-                if var.name == identifier:
-                    return var
-            raise ValueError(f"No variable in vector with name '{identifier}'!")
-        elif isinstance(identifier, int):
+        if isinstance(identifier, int):
             return self.variables[identifier]
         else:
             raise ValueError(f"Identifier must be of type 'int' to indicate position in vector or 'str' to indicate the name of the element. Got {type(identifier)}!")
 
     def __setitem__(self, index, element):
         if isinstance(index, int):
-            if isinstance(element, float) or isinstance(element, int):
+            if isinstance(element, Number):
                 self.variable[index] = (StochasticVariable(value=element, name=f"_ProbPy_Constant({element})"))
             elif isinstance(element, StochasticVariable):
                 self.variables[index] = element
@@ -658,46 +554,130 @@ class StochasticVector:
             if len(self.variables) != len(other.variables):
                 raise ValueError(f"Both vectors must have the same number of components for {op_name}.")
 
-            
-            unique_variables = []
-            
             for var, other_var in zip(self.variables, other.variables):
-                # Check if a variable with the same name already exists
-                existing_var = next((unique_var for unique_var in unique_variables if unique_var.name == f"{var.name}_{op_name}_{other_var.name}"), None)
-                
-                if existing_var:
-                    combined_vars.append(existing_var)
-                else:
-                    new_var = apply(operator_func, var, other_var, name=f"{var.name}_{op_name}_{other_var.name}")
-                    unique_variables.append(new_var)
-                    combined_vars.append(new_var)
+                combined_vars.append(apply(operator_func, var, other_var, name=operation_name(op_name, var, other_var)))
 
-
-        elif isinstance(other, StochasticVariable) or np.isscalar(other):
-            unique_variables = []
-            
+        elif isinstance(other, StochasticVariable) or np.isscalar(other):            
             for var in self.variables:
-                # Check if a variable with the same name already exists
-                existing_var = next((unique_var for unique_var in unique_variables if unique_var.name == f"{var.name}_{op_name}_{other}"), None)
-                
-                if existing_var:
-                    combined_vars.append(existing_var)
-                else:
-                    new_var = apply(operator_func, var, other, name=f"{var.name}_{op_name}_{other}")
-                    unique_variables.append(new_var)
-                    combined_vars.append(new_var)
+                    combined_vars.append(apply(operator_func, var, other, name=operation_name(op_name, var, other)))
         else:
             raise ValueError(f"Unsupported operand type for {op_name} operation.")
 
-        return StochasticVector(*combined_vars, name=f"{self.name}_{op_name}")
+        return StochasticVector(*combined_vars, name=f"{str(self)}_{op_name}_{str(other)}")
 
     # Representation
     def __repr__(self):
         return f"StochasticVector(name={self.name}, variables={[var.name for var in self.variables]})"
 
 
+class StochasticMatrix:
+
+    def __init__(self, matrix, name=None):
+        """
+        Initializes a stochastic matrix.
+
+        Parameters:
+            - matrix: A 2D list or numpy array of StochasticVariable instances.
+            - name (str): Name of the stochastic matrix (default: None).
+        """
+
+        for i, element in enumerate(matrix):
+            if isinstance(element, StochasticVector):
+                matrix[i] = element.variables
+
+        self.matrix = np.array(matrix, dtype=object)
+        for i, element in enumerate(self.matrix.flatten()):
+            if not isinstance(element, StochasticVariable):
+                if isinstance(element, Number):  # Check if the element is numeric
+                    from .distributions import ConstantDistribution
+                    self.matrix.flat[i] = StochasticVariable(
+                        ConstantDistribution(element), name=f"_Constant({element})"
+                    )
+                else:
+                    raise ValueError("All elements of StochasticMatrix must be StochasticVariable instances or numeric.")
+
+        self.name = name or "SMat_" + str(id(self))
+        self.shape = np.shape(matrix)
+
+    def sample(self, size=1, context=None):
+        if context is None:
+            context = {}
+
+        samples = np.empty((size,) + self.matrix.shape, dtype=float)
+        for idx, var in np.ndenumerate(self.matrix):
+            samples[:, idx[0], idx[1]] = var.sample(size=size, context=context)
+        return samples[0].tolist() if np.shape(samples)[0] == 1 else samples.tolist()
+
+    def get_all_dependencies(self, visited=None, stack=None):
+        dependencies = set()
+        for var in self.matrix.flatten():
+            dependencies.update(var.get_all_dependencies(visited=visited, stack=stack))
+            dependencies.add(var)
+        return dependencies
+
+    def transpose(self):
+        transposed_matrix = self.matrix.T
+        return StochasticMatrix(transposed_matrix, name=f"{self.name}_T")
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def matmul(self, other):
+        if isinstance(other, StochasticMatrix):
+            if self.shape[1] != other.shape[0]:
+                raise ValueError("Matrix dimensions do not align for multiplication.")
+            result_matrix = np.empty((self.shape[0], other.shape[1]), dtype=object)
+            for i in range(self.shape[0]):
+                for j in range(other.shape[1]):
+                    variables = []
+                    for k in range(self.shape[1]):
+                        variables.append(apply(operator.mul, self.matrix[i, k], other.matrix[k, j], name=operation_name("*", self.matrix[i, k], other.matrix[k, j])))
+                    result_matrix[i, j] = sum(variables)
+            return StochasticMatrix(result_matrix, name=operation_name("@", self, other))
+        elif isinstance(other, StochasticVector):
+            if self.shape[1] != len(other):
+                raise ValueError("Matrix and vector dimensions do not align for multiplication.")
+            result_vector = np.empty((self.shape[0],), dtype=object)
+            for i in range(self.shape[0]):
+                # Multiply corresponding elements and sum them
+                products = []
+                for k in range(self.shape[1]):
+                    products.append(self.matrix[i, k] * other.variables[k])
+                # Sum the products
+                result = reduce(operator.add, products)
+                result_vector[i] = result
+            return StochasticVector(*result_vector, name=operation_name("@", self, other))
+        else:
+            raise ValueError("Unsupported type for matrix multiplication.")
+
+    def __matmul__(self, other):
+        return self.matmul(other)
+
+    def __str__(self):
+        rows = [
+            "[{}]".format(", ".join(str(element) for element in row))
+            for row in self.matrix
+            ]
+        return "\n[" + ",\n ".join(rows) + "]\n"
+
+    def __getitem__(self, key):
+        element = self.matrix[key]
+        if isinstance(element, np.ndarray):
+            return StochasticMatrix(element, name=f"{self.name}[{key}]")
+        else:
+            return element
+
+    def __setitem__(self, key, value):
+        if isinstance(value, StochasticVariable):
+            self.matrix[key] = value
+        else:
+            raise ValueError("Assigned value must be a StochasticVariable.")
+
+
 
 # Core functions
+
 
 def delete(object):
     """
@@ -711,83 +691,64 @@ def delete(object):
         if object in StochasticVariable.instances:
             StochasticVariable.instances.remove(object) 
             del object
-        return
+    elif isinstance(object, StochasticMatrix):
+        for variable in object.matrix.flatten():
+            delete(variable)
+        del object
     elif isinstance(object, StochasticVector):
         for variable in object.variables:
             delete(variable)
         del object
-        return
-    elif isinstance(object, str):
-        for element in StochasticVariable.instances:
-            if element.name == object:
-                StochasticVariable.instances.remove(element)
-                del element
-                return
-        raise ValueError(f'No variable with name "{object}!"')
+    return
         
 
 def apply(func, *args, name=None):
-    dependencies = []
-    for arg in args:
-        if isinstance(arg, StochasticVariable):
-            dependencies.append(arg)
-        else:
-            dependencies.append(StochasticVariable(value=arg, name=f"_ProbPy_Constant({arg})"))
-    dependencies = [
-        arg if isinstance(arg, StochasticVariable) else StochasticVariable(value=arg, name=f"_Constant({arg})")
-        for arg in args
-    ]
-
-    def new_func(*samples):
-        return func(*samples)
-
-    distribution_types = {dep.distribution_type for dep in dependencies if dep.distribution_type}
-    distribution_type = distribution_types.pop() if len(distribution_types) == 1 else "mixed"
-
-    return StochasticVariable(
-        dependencies=dependencies,
-        func=new_func,
-        name=name,
-        distribution_type=distribution_type,
-    )
-
-
-def probability(condition, *args, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=None):
     """
-    Estimate the probability that a condition involving stochastic variables is True.
+    Applies a function to one or more stochastic variables, returning a new stochastic variable.
 
     Parameters:
-    - condition: A callable that accepts N inputs and returns a boolean array.
-    - *args: An arbitrary number of StochasticVariables or constants.
-    - size: The number of samples to generate for the estimation (default: DEFAULT_STATISTICS_SAMPLE_SIZE).
-    - context: Optional context dictionary to cache samples.
+        - func: The function to apply.
+        - *args: The stochastic variables (or constants) to which the function is applied.
+        - name: Optional name for the resulting stochastic variable.
 
     Returns:
-    - Estimated probability as a float between 0 and 1.
+        - StochasticVariable: The result of applying the function.
     """
+
+    from .distributions import ConstantDistribution, TransformedDistribution
+
+    variables = []
+    for arg in args:
+        if isinstance(arg, StochasticVariable):
+            variables.append(arg)
+        else:
+            variables.append(StochasticVariable(ConstantDistribution(arg), name=f"_Constant({arg})"))
+
+    distribution = TransformedDistribution(func, variables)
+    return StochasticVariable(distribution=distribution, name=name)
+
+
+def probability(condition, *args, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=None, stochastic=False, name=None):
+    
+    from .distributions import ProbabilityDistribution
+    
+    if stochastic:
+        return StochasticVariable(ProbabilityDistribution(condition, *args), name=name)
+
+    # Non-stochastic version remains unchanged
     if context is None:
         context = {}
 
-    # Collect samples from args
     samples_list = []
     for arg in args:
         if isinstance(arg, StochasticVariable):
             samples = arg.sample(size=size, context=context)
         else:
-            # If arg is a constant, create an array of the constant
             samples = np.full(size, arg)
         samples_list.append(samples)
 
-    # Convert the list of samples into arrays
-    samples_tuple = tuple(samples_list)
-
-    # Evaluate the condition across all samples
-    condition_results = condition(*samples_tuple)
-
-    # Ensure the condition results are a boolean array
+    condition_results = condition(*samples_list)
     condition_results = np.asarray(condition_results, dtype=bool)
-
-    # Calculate the probability
     prob = np.mean(condition_results)
 
     return prob
@@ -800,3 +761,13 @@ def set_random_seed(seed):
     np.random.seed(seed)
     # Optionally, also configure scipy.stats if applicable
     distributions.rng = np.random.default_rng(seed)
+
+
+
+# Helper functions
+
+
+def operation_name(symbol, term1, term2):
+    A = "(" + str(term1) + ")" if any(char in ["+", "-", " "] for char in str(term1)) else str(term1)
+    B = "(" + str(term2) + ")" if any(char in ["+", "-", " "] for char in str(term2)) else str(term2)
+    return A + " " + symbol + " " + B

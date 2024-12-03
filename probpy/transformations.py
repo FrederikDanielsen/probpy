@@ -166,3 +166,27 @@ def min_(*Xs):  # Avoid overriding built-in 'min'
 def max_(*Xs):  # Avoid overriding built-in 'max'
     names = ', '.join([x.name if isinstance(x, StochasticVariable) else str(x) for x in Xs])
     return apply(lambda *args: np.maximum.reduce(args), *Xs, name=f"max({names})")
+
+
+
+# Other
+
+def sum_(*Xs):
+    Xs = list(Xs)[0]
+    names = [X.name for X in Xs]
+    sum_name = ""
+    for i, name in enumerate(names):
+        sum_name += name
+        if i < len(names) - 1:
+            sum_name += " + "
+    
+    summed_vars = Xs[0]
+
+    for i in range(1, len(Xs)):
+        summed_vars = summed_vars + Xs[i]
+
+    summed_vars.name = sum_name
+
+    return summed_vars
+
+    

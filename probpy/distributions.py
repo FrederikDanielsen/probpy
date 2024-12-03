@@ -1,3 +1,4 @@
+
 # distributions.py
 
 # IMPORTS
@@ -8,6 +9,8 @@ from .constants import DEFAULT_STATISTICS_SAMPLE_SIZE
 from abc import ABC, abstractmethod
 from scipy.stats import t
 from scipy.integrate import quad
+from collections.abc import Iterable
+
 
 
 # Base abstract class for all distributions
@@ -95,6 +98,14 @@ class Distribution(ABC):
         samples = self.sample(size=size)
         return np.mean(samples ** n)
 
+    def summary(self):
+        print("-"*60)
+        print("Mean:    ", self.mean())
+        print("Variance:", self.var())
+        print("Skewness:", self.nth_moment(3))
+        print("Kurtosis:", self.nth_moment(4))
+        print("-"*60)
+
     #def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
     #    samples = self.sample(size=size)
     #    mean = np.mean(samples)
@@ -109,7 +120,7 @@ class Distribution(ABC):
         h = sem * t.ppf((1 + confidence_level) / 2., size - 1)
         if self.distribution_type == "discrete":
             return np.floor(mean-h), np.ceil(mean+h)
-        return mean - h, mean + h
+        return float(mean - h), float(mean + h)
     
     def variance_confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
         samples = self.sample(size=size)
@@ -127,7 +138,7 @@ class Distribution(ABC):
         
         if self.distribution_type == "discrete":
             return np.floor(lower_bound), np.ceil(upper_bound)
-        return lower_bound, upper_bound
+        return float(lower_bound), float(upper_bound)
 
     def confidence_interval(self, confidence_level=0.95, size=DEFAULT_STATISTICS_SAMPLE_SIZE):
         samples = self.sample(size=size)
@@ -139,7 +150,7 @@ class Distribution(ABC):
         lower_bound = np.percentile(samples, lower_percentile)
         upper_bound = np.percentile(samples, upper_percentile)
         
-        return lower_bound, upper_bound
+        return float(lower_bound), float(upper_bound)
 
 
 # Base class for parametric distributions, handles parameter resolution and dependencies
@@ -260,47 +271,58 @@ class CustomDistribution(ParametricDistribution):
         if self.distribution_type == 'discrete':
             raise ValueError("PDF is not defined for discrete distributions.")
         resolved_params = self._resolve_params(context=context)
-        return self.func(x, **resolved_params)
+        func = lambda xi: self.func(xi, **resolved_params)
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            return np.array([func(xi) for xi in x])
+        else:
+            return func(x)
 
     def pmf(self, x, context=None):
         if self.distribution_type == 'continuous':
             raise ValueError("PMF is not defined for continuous distributions.")
         resolved_params = self._resolve_params(context=context)
-        return self.func(x, **resolved_params)
+        func = lambda xi: self.func(xi, **resolved_params)
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            return np.array([func(xi) for xi in x])
+        else:
+            return func(x)
 
     def cdf(self, x):
         """
         Compute the cumulative distribution function (CDF) at x.
 
         Parameters:
-            - x (float): The value at which to evaluate the CDF.
+            - x (float or list of floats): The value(s) at which to evaluate the CDF.
 
         Returns:
-            - CDF value at x.
+            - CDF value(s) at x.
         """
-        if self.distribution_type == "continuous":
-            a, b = self.domain  # Unpack the interval
-            if x < a:
-                return 0  # Below the domain
-            elif x > b:
-                return 1  # Above the domain
-            else:
-                # Integrate the PDF from a to x
-                result, _ = quad(self.func, a, x)
-                return result
-
-        elif self.distribution_type == "discrete":
-            if not isinstance(self.domain, list):
-                raise ValueError("Domain must be a list for discrete distributions.")
-            
-            # Sum the PMF for values <= x
-            cumulative_sum = sum(self.func(xi) for xi in self.domain if xi <= x)
-            return cumulative_sum
-
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            return np.array([self.cdf(xi) for xi in x])
         else:
-            raise ValueError("Invalid distribution type. Must be 'continuous' or 'discrete'.")
+            if self.distribution_type == "continuous":
+                a, b = self.domain  # Unpack the interval
+                if x < a:
+                    return 0  # Below the domain
+                elif x > b:
+                    return 1  # Above the domain
+                else:
+                    # Integrate the PDF from a to x
+                    result, _ = quad(self.func, a, x)
+                    return result
 
-    # Inherit empirical methods from Distribution class
+            elif self.distribution_type == "discrete":
+                if not isinstance(self.domain, list):
+                    raise ValueError("Domain must be a list for discrete distributions.")
+                
+                # Sum the PMF for values <= x
+                cumulative_sum = sum(self.func(xi) for xi in self.domain if xi <= x)
+                return cumulative_sum
+
+            else:
+                raise ValueError("Invalid distribution type. Must be 'continuous' or 'discrete'.")
+
+        # Inherit empirical methods from Distribution class
 
 
 # Class for creating mixture distributions
@@ -417,6 +439,108 @@ class MixtureDistribution(Distribution):
                 deps.update(weight.get_all_dependencies())
                 deps.add(weight)
         return deps
+
+
+
+class ConstantDistribution(Distribution):
+    def __init__(self, value):
+        super().__init__(distribution_type='constant')
+        self.value = value
+
+    def sample(self, size=1, context=None):
+        return np.full(size, self.value)
+
+    def get_dependencies(self):
+        return set()
+
+    def pmf(self, x, context=None):
+        return np.where(x == self.value, 1.0, 0.0)
+
+    def pdf(self, x, context=None):
+        return np.zeros_like(x)
+
+    def cdf(self, x, context=None):
+        return np.where(x < self.value, 0.0, 1.0)
+
+
+
+class TransformedDistribution(Distribution):
+    def __init__(self, func, variables):
+        super().__init__()
+        self.func = func
+        self.variables = variables
+
+        # Determine distribution_type
+        distribution_types = {var.distribution_type for var in variables}
+        if len(distribution_types) == 1:
+            self.distribution_type = distribution_types.pop()
+        else:
+            self.distribution_type = "mixed"
+
+    def sample(self, size=1, context=None):
+        if context is None:
+            context = {}
+
+        # Collect samples from variables
+        samples_list = []
+        for var in self.variables:
+            samples_list.append(var.sample(size=size, context=context))
+
+        # Apply the function to the samples
+        samples = self.func(*samples_list)
+        return samples
+
+    def get_dependencies(self):
+        deps = set()
+        for var in self.variables:
+            deps.update(var.get_all_dependencies())
+            deps.add(var)
+        return deps
+
+
+
+class ProbabilityDistribution(Distribution):
+    
+    def __init__(self, condition, *args):
+        self.condition = condition
+        self.args = args
+        self.distribution_type = "continuous"
+    
+    def sample(self, size=1, context=None):
+        if context is None:
+            context = {}
+        
+        # Check if samples are already in context
+        if self in context:
+            cached_samples = context[self]
+            if len(cached_samples) >= size:
+                return cached_samples[:size]
+            else:
+                samples_needed = size - len(cached_samples)
+        else:
+            samples_needed = size
+            context[self] = np.array([])
+        
+        new_samples = []
+        for _ in range(samples_needed):
+            # Use a fresh context for sampling underlying variables
+            sample_context = {}
+            num_inner_samples = 1000  # Number of samples for probability estimation
+            samples_list = []
+            for arg in self.args:
+                if isinstance(arg, StochasticVariable):
+                    arg_samples = arg.sample(size=num_inner_samples, context=sample_context)
+                else:
+                    arg_samples = np.full(num_inner_samples, arg)
+                samples_list.append(arg_samples)
+            # Evaluate the condition over the samples
+            condition_results = self.condition(*samples_list)
+            # Compute the probability estimate
+            prob = np.mean(condition_results)
+            new_samples.append(prob)
+        # Update context
+        context[self] = np.concatenate([context[self], new_samples])
+        return context[self][:size]
 
 
 

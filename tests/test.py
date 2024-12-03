@@ -8,6 +8,7 @@ from scipy.stats import (
 from probpy.core import (
     StochasticVariable,
     StochasticVector,
+    StochasticMatrix,
     apply,
     probability,
 )
@@ -41,6 +42,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 SMALL_SAMPLE = 100
 MEDIUM_SAMPLE = 1000
 LARGE_SAMPLE = 1000000
+
 
 class TestDistributions(unittest.TestCase):
 
@@ -191,7 +193,6 @@ class TestDependencyStructures(unittest.TestCase):
         Y = StochasticVariable(NormalDistribution(mu=X, sigma=1), name='Y')
         Z = StochasticVariable(NormalDistribution(mu=Y, sigma=1), name='Z')
 
-        # Sample with shared context
         context = {}
         X_samples = X.sample(size=LARGE_SAMPLE, context=context)
         Y_samples = Y.sample(size=LARGE_SAMPLE, context=context)
@@ -207,19 +208,13 @@ class TestDependencyStructures(unittest.TestCase):
         A = StochasticVariable(BernoulliDistribution(p=0.6), name='A')
         B = StochasticVariable(BernoulliDistribution(p=0.7), name='B')
 
-        def cpt(a_samples, b_samples):
-            # Conditional probability table for C
-            return a_samples & b_samples
+        C = apply(lambda a, b: a & b, A, B, name='C')
 
-        C = StochasticVariable(func=cpt, dependencies=[A, B], name='C')
-
-        # Sample with shared context
         context = {}
         A_samples = A.sample(size=LARGE_SAMPLE, context=context)
         B_samples = B.sample(size=LARGE_SAMPLE, context=context)
         C_samples = C.sample(size=LARGE_SAMPLE, context=context)
 
-        # Theoretical probability of C being True
         expected_p_C = 0.6 * 0.7
         actual_p_C = np.mean(C_samples)
         self.assertAlmostEqual(actual_p_C, expected_p_C, delta=0.01)
@@ -247,7 +242,8 @@ class TestStatisticalProperties(unittest.TestCase):
         mu_V = 1 / 0.7
 
         # Correctly pass the standard deviation (sqrt(V)) instead of variance (V)
-        Xs = [StochasticVariable(NormalDistribution(M, StochasticVariable(func=lambda v: np.sqrt(v), dependencies=[V])), name=f"X_{i}") for i in range(n)]
+
+        Xs = [StochasticVariable(NormalDistribution(M, apply(lambda v: np.sqrt(v), V)), name=f"X_{i}") for i in range(n)]
 
         # Sum the stochastic variables
         X = sum(Xs)
@@ -479,12 +475,43 @@ class TestDependencyGraph(unittest.TestCase):
         V2.name = 'V2'
         # Plot the dependency graph
 
+        V3 = StochasticVector(X1, X2, V2.norm(), name="V3")
+
         try:
-            plot_dependency_graph(V1, V2, Y, title="Dependency Graph with Vectors", depth=1)
+            plot_dependency_graph(V3, V1, V2, Y, title="Dependency Graph with Vectors", depth=1)
             success = True
         except Exception:
             success = False
         self.assertTrue(success)
+
+
+class TestStochasticMatrix(unittest.TestCase):
+
+    def test_matrix_operations(self):
+        StochasticVariable.delete_all_instances()
+        # Define a 2x2 stochastic matrix
+        a = StochasticVariable(NormalDistribution(mu=1, sigma=0.1), name='a')
+        b = StochasticVariable(NormalDistribution(mu=2, sigma=0.1), name='b')
+        c = StochasticVariable(NormalDistribution(mu=3, sigma=0.1), name='c')
+        d = StochasticVariable(NormalDistribution(mu=4, sigma=0.1), name='d')
+
+        matrix1 = StochasticMatrix([[a, b], [c, d]], name='Matrix1')
+        matrix2 = matrix1.transpose()
+
+        # Test matrix multiplication
+        result_matrix = matrix1 @ matrix2
+        samples = result_matrix.sample(size=1000)
+        self.assertEqual(samples.shape, (1000, 2, 2))
+
+        print(matrix1)
+
+        # Test that the result has the expected mean values
+        expected_means = np.array([[a.mean() * a.mean() + b.mean() * b.mean(),
+                                    a.mean() * c.mean() + b.mean() * d.mean()],
+                                   [c.mean() * a.mean() + d.mean() * b.mean(),
+                                    c.mean() * c.mean() + d.mean() * d.mean()]])
+        sample_means = np.mean(samples, axis=0)
+        np.testing.assert_allclose(sample_means, expected_means, atol=0.1)
 
 if __name__ == "__main__":
     unittest.main()

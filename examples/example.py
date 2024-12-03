@@ -33,6 +33,33 @@ SMALL_SAMPLE = 100
 MEDIUM_SAMPLE = 1000
 LARGE_SAMPLE = 100000
 
+
+
+StochasticVariable.delete_all_instances()
+
+from probpy.core import StochasticMatrix
+
+X = StochasticVariable(NormalDistribution(0,1), name="X")
+Y = StochasticVariable(ExponentialDistribution(2), name="Y")
+
+M = StochasticMatrix([[X, 1/2],[Y, -1]], name="M")
+
+print(M)
+
+print(M.T)
+
+print(M @ M.T)
+
+V = StochasticVector(X, Y, name="V")
+
+Transformed_V = M @ V
+
+print(Transformed_V)
+
+exit()
+
+
+
 print("Section 1: Basic Distributions")
 
 # Normal Distribution
