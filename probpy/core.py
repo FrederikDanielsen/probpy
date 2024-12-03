@@ -656,10 +656,11 @@ class StochasticMatrix:
 
     def __str__(self):
         rows = [
-            "[{}]".format(", ".join(str(element) for element in row))
+            "[{}]".format(", ".join(f"{str(element):>{max(len(str(el)) for row in self.matrix for el in row)}}"
+                                    for element in row))
             for row in self.matrix
-            ]
-        return "\n[" + ",\n ".join(rows) + "]\n"
+        ]
+        return "\n" + "[" + ",\n ".join(rows) + "]"
 
     def __getitem__(self, key):
         element = self.matrix[key]
