@@ -79,6 +79,8 @@ print(X.sample())
 print(X.sample(10))
 ```
 
+**Output:**
+
     0.417022004702574
     [7.20324493e-01 1.14374817e-04 3.02332573e-01 1.46755891e-01
      9.23385948e-02 1.86260211e-01 3.45560727e-01 3.96767474e-01
@@ -96,6 +98,8 @@ Y = StochasticVariable(name="Brightness")
 print(Y)
 ```
 
+**Output:**
+
     Brightness
     
 
@@ -110,6 +114,8 @@ Z = StochasticVariable(NormalDistribution(mu=0, sigma=1), name="Z")
 
 print(Z.sample(10))
 ```
+
+**Output:**
 
     [-1.01701414  0.63736181 -0.85990661  1.77260763 -1.11036305  0.18121427
       0.56434487 -0.56651023  0.7299756   0.37299379]
@@ -126,6 +132,8 @@ Z.set_distribution(ExponentialDistribution(lambd=2))
 
 print(Z.sample(10))
 ```
+
+**Output:**
 
     [1.12502793 0.04443977 0.01991894 0.09306264 1.05245149 0.05176267
      0.27331935 1.58372944 0.38089001 0.5886283 ]
@@ -152,6 +160,8 @@ print(Z)
 print(Z.sample(10))
 ```
 
+**Output:**
+
     X + Y
     Z
     [ 1.23480579 -1.11655719 -0.09285109  1.11934358 -0.01166563  0.60947085
@@ -166,6 +176,8 @@ from probpy.plots import plot_distribution
 
 plot_distribution(Z)
 ```
+
+**Output:**
 
 
     
@@ -207,6 +219,8 @@ print("Confidence interval of the variance of Z:", Z.variance_confidence_interva
 print("Confidence interval of Z:", Z.confidence_interval())
 ```
 
+**Output:**
+
     Summary of Z:
     
     Mean: -1.6502189618157412
@@ -227,6 +241,8 @@ skewness and kurtosis are calculated as the 3rd and 4th moments, respectively. T
 ```python
 Z.summary()
 ```
+
+**Output:**
 
     ------------------------------------------------------------
     Summary of X + Y
@@ -253,6 +269,8 @@ Z.summary()
 
 plot_distribution(Z)
 ```
+
+**Output:**
 
     ------------------------------------------------------------
     Summary of Z
@@ -285,6 +303,8 @@ plot_distribution(X)
 
 ```
 
+**Output:**
+
     ------------------------------------------------------------
     Summary of X
     ------------------------------------------------------------
@@ -313,6 +333,8 @@ Y.summary()
 
 plot_distribution(Y)
 ```
+
+**Output:**
 
     ------------------------------------------------------------
     Summary of Y
@@ -385,6 +407,8 @@ Y.summary()
 plot_distribution(Y)
 ```
 
+**Output:**
+
     ------------------------------------------------------------
     Summary of exp(X)
     ------------------------------------------------------------
@@ -418,6 +442,8 @@ print("P(X > 4) =", probability(lambda x: x > 4, X))
 plot_distribution(X)
 ```
 
+**Output:**
+
     P(X > 4) = 0.1874
     
 
@@ -444,6 +470,8 @@ print("Confidence interval for P(X > 4)", P.confidence_interval())
 
 ```
 
+**Output:**
+
     Confidence interval for P(X > 4) (0.161, 0.21)
     
 
@@ -467,6 +495,8 @@ P.summary()
 plot_distribution(P)
 ```
 
+**Output:**
+
     ------------------------------------------------------------
     Summary of P
     ------------------------------------------------------------
@@ -487,6 +517,8 @@ plot_distribution(P)
 ```python
 plot_distribution(X+Y)
 ```
+
+**Output:**
 
 
     
@@ -534,6 +566,8 @@ print(V2.sample())
 
 ```
 
+**Output:**
+
     [X, Y, 0.5]
     [1, 2, X]
     [-1.7743466414040037, 0.6123927134758784, 0.5]
@@ -549,6 +583,8 @@ print(V1)
 
 print(V1.sample(2))
 ```
+
+**Output:**
 
     [X, Y, 0.5, X]
     [[0.9015296413803433, 1.3084037962729504, 0.5, 0.9015296413803433], [0.9692997604357816, -0.5077683246403369, 0.5, 0.9692997604357816]]
@@ -574,6 +610,8 @@ print(V3)
 plot_distribution(V3[1])
 ```
 
+**Output:**
+
     [cross(V1, V2)_x, cross(V1, V2)_y, cross(V1, V2)_z]
     
 
@@ -597,6 +635,8 @@ print(Z)
 N.summary()
 Z.summary()
 ```
+
+**Output:**
 
     (V1)_norm_2
     dot(V1, V2)
@@ -650,6 +690,8 @@ print(M @ M.T)
 
 ```
 
+**Output:**
+
     
     [[X, 0.5],
      [Y, X + Y]]
@@ -679,6 +721,8 @@ plot_distribution(Transformed_V.norm())
 
 ```
 
+**Output:**
+
     [(X * X) + (0.5 * Y), (Y * X) + ((X + Y) * Y)]
     
 
@@ -699,6 +743,8 @@ from probpy.plots import plot_dependency_graph
 plot_dependency_graph(M)
 ```
 
+**Output:**
+
 
     
 ![png](img/output_48_0.png)
@@ -708,7 +754,7 @@ plot_dependency_graph(M)
 
 
 
-    <networkx.classes.digraph.DiGraph at 0x25f6e927cb0>
+
 
 
 
@@ -719,6 +765,8 @@ One can use the `depth` parameter of the `plot_dependency_graph` function to spe
 plot_dependency_graph(M, depth=2)
 ```
 
+**Output:**
+
 
     
 ![png](img/output_50_0.png)
@@ -728,7 +776,7 @@ plot_dependency_graph(M, depth=2)
 
 
 
-    <networkx.classes.digraph.DiGraph at 0x25f6e81eea0>
+
 
 
 
@@ -757,6 +805,8 @@ chi_square_test(true_distribution, Z)
 kolmogorov_smirnov_test(true_distribution, Z)
 
 ```
+
+**Output:**
 
     
     --------------------------------------------------------------------
@@ -793,10 +843,6 @@ kolmogorov_smirnov_test(true_distribution, Z)
     consistent with the null hypothesis.
     
     
-
-
-
-
     (0.010005908997324342, 0.2675892708126909)
 
 
@@ -832,6 +878,8 @@ pi_estimate = 4 * np.mean(results)
 print(pi_estimate)
 ```
 
+**Output:**
+
     3.1417068
     
 
@@ -862,6 +910,8 @@ summary = summarize_simulation(results)
 
 print(f"Estimated integral of sin(x) from {a} to {b}: {integral_estimate:.6f}")
 ```
+
+**Output:**
 
     Estimated integral of sin(x) from 0 to 3.141592653589793: 2.000621
     
