@@ -6,7 +6,7 @@ ProbPy is a Python library for modeling and manipulating stochastic variables an
 The following demonstration provides a comprehensive guide on how to effectively utilize the library. It walks you through the essential features and functionalities, showcases practical examples, and illustrates best practices to help you integrate the library seamlessly into your projects. 
 
 ## Initialization
-We will begin by importing some useful classes and functions from the library. The library consists of six modules:
+The library consists of six modules:
 - `probpy.core`: containing core functionalities of the library.
 - `probpy.distributions`: containing distributions
 - `probpy.plots`: containing functions for plotting
@@ -14,6 +14,7 @@ We will begin by importing some useful classes and functions from the library. T
 - `probpy.goodness_of_fit`: containing functions that can be used to test whether a stochastic variable follows a certain distribution
 - `probpy.monte_carlo`: containing functions that can be used to perform monte carlo simulations
 
+Let us start by importing the following class and function.
 
 ```python
 from probpy.core import StochasticVariable, set_random_seed

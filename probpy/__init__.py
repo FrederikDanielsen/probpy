@@ -34,3 +34,4 @@ __all__ = [
 # 10. Include plotting of vector distributions. Maybe this is just plotting of multivariate distributions?
 # 11. Include more methods in Matrix class - like matrix norm, maybe something like matrix exponential.
 # 12. Make it possible to apply transformations elementwise to vectors and matrices
+# 13. Better function and class descriptions
