@@ -563,10 +563,12 @@ class BernoulliDistribution(StandardDistribution):
 
 class BinomialDistribution(StandardDistribution):
     def __init__(self, n, p):
-        if (not isinstance(n, int)) or n < 0:
-            raise ValueError(f"Argument 'n' must be a positive integer. Got n={n}")
-        if p > 1 or p < 0:
-            raise ValueError(f"Argument 'p' must be in the interval [0,1]. Got p={p}")
+        if (not isinstance(n, StochasticVariable)):
+            if (not isinstance(n, int)) or n < 0:
+                raise ValueError(f"Argument 'n' must be a positive integer. Got n={n}")
+        if (not isinstance(p, StochasticVariable)):
+            if p > 1 or p < 0:
+                raise ValueError(f"Argument 'p' must be in the interval [0,1]. Got p={p}")
         super().__init__(dist=binom, n=n, p=p)
 
 class GeometricDistribution(StandardDistribution):

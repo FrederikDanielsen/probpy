@@ -752,7 +752,7 @@ def probability(condition, *args, size=DEFAULT_STATISTICS_SAMPLE_SIZE, context=N
     condition_results = np.asarray(condition_results, dtype=bool)
     prob = np.mean(condition_results)
 
-    return prob
+    return float(prob)
 
 
 def set_random_seed(seed):
