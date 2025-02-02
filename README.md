@@ -1,7 +1,7 @@
 # ProbPy
 ---
 ProbPy is a Python library for modeling and manipulating stochastic variables and probability distributions. It provides tools for statistical analysis, transformations, Monte Carlo simulations, and visualizations, making it easier to work with random processes and probabilistic models.
-
+Note that large parts of this code were produced using generative AI.
 
 The following demonstration provides a comprehensive guide on how to effectively utilize the library. It walks you through the essential features and functionalities, showcases practical examples, and illustrates best practices to help you integrate the library seamlessly into your projects. 
 
